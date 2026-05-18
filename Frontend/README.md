@@ -14,6 +14,10 @@ Since PWAs require **HTTPS** to be installable on mobile devices, the easiest wa
 1. Push your code to a GitHub repository.
 2. Import the repository into [Vercel](https://vercel.com).
 3. Vercel will give you a live `https://your-app.vercel.app` URL.
+4. **⚠️ Important**: In Vercel's "Build and Output Settings", ensure the settings are as follows:
+   * **Build Command**: `next build --webpack` (or turn off the override to use `package.json` scripts).
+   * **Output Directory**: Leave as default (`Next.js default`).
+   * **Install Command**: Leave as default (it will auto-detect based on your lock file).
 
 ### Step 2: Expose your Local Backend
 Since your frontend is on HTTPS (Vercel), your backend must also be on HTTPS to prevent "Mixed Content" security blocks.
