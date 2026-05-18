@@ -1,0 +1,189 @@
+'use client';
+
+import { DashboardLayout } from '@/components/DashboardLayout';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { adminAPI } from '@/lib/api';
+import { toast } from '@/hooks/use-toast';
+import { Zap, TrendingUp, BarChart, Users, Store, ArrowUpRight, DollarSign } from 'lucide-react';
+
+import { useState, useEffect } from 'react';
+
+interface AnalyticsData {
+  period: string;
+  shopGrowth: { newShops: number };
+  customerGrowth: { newCustomers: number };
+  topShops: Array<{ shopName: string; revenue: number }>;
+  creditRecoveryRate: number;
+  collectionEfficiency: number;
+}
+
+export default function AdminAnalyticsPage() {
+  const [data, setData] = useState<AnalyticsData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [period, setPeriod] = useState('30days');
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [period]);
+
+  const fetchAnalytics = async () => {
+    setIsLoading(true);
+    try {
+      const response = await adminAPI.getAnalytics(period);
+      setData(response.data.analytics);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to load analytics',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <ProtectedRoute requiredRole="ADMIN">
+      <DashboardLayout>
+        <div className="space-y-8 max-w-7xl mx-auto">
+          
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-black text-foreground tracking-tight flex items-center gap-3">
+                <Zap className="w-8 h-8 text-primary dark:text-indigo-400" /> Platform Analytics
+              </h1>
+              <p className="text-muted-foreground mt-1 font-medium">
+                In-depth financial insights and growth metrics across SCMS.
+              </p>
+            </div>
+            <div className="flex bg-card text-card-foreground border border-border shadow-sm rounded-xl border border-border/50 p-1">
+              {[
+                 { label: '7D', value: '7days' },
+                 { label: '30D', value: '30days' },
+                 { label: '90D', value: '90days' },
+                 { label: '1Y', value: '1year' },
+               ].map(p => (
+                <button
+                  key={p.value}
+                  onClick={() => setPeriod(p.value)}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                    period === p.value ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {isLoading ? (
+             <div className="text-center py-20">
+               <svg className="animate-spin h-10 w-10 text-primary dark:text-indigo-400 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+              </svg>
+              <p className="text-muted-foreground font-medium">Generating reports...</p>
+            </div>
+          ) : !data ? (
+             <div className="text-center py-20 glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all">
+               <p className="text-muted-foreground">Analytics unavailable for this period.</p>
+             </div>
+          ) : (
+            <div className="space-y-6">
+              
+              {/* Top Level Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all flex flex-col gap-2 relative overflow-hidden group">
+                  <div className="absolute -right-4 -top-4 w-24 h-24 bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors rounded-full blur-2xl group-hover:bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors transition-all" />
+                  <p className="text-xs font-bold text-primary dark:text-primary dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1">
+                    <Store className="w-4 h-4" /> New Shops
+                  </p>
+                  <p className="text-4xl font-black text-foreground">{data.shopGrowth.newShops}</p>
+                </div>
+                <div className="glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all flex flex-col gap-2 relative overflow-hidden group">
+                  <div className="absolute -right-4 -top-4 w-24 h-24 bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors rounded-full blur-2xl group-hover:bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors transition-all" />
+                  <p className="text-xs font-bold text-primary dark:text-primary dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1">
+                    <Users className="w-4 h-4" /> New Customers
+                  </p>
+                  <p className="text-4xl font-black text-foreground">{data.customerGrowth.newCustomers}</p>
+                </div>
+                <div className="glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all flex flex-col gap-2 relative overflow-hidden group border-indigo-500/20 dark:border-indigo-400/20 dark:border-indigo-500/20 dark:border-indigo-400/20 shadow-lg shadow-indigo-500/20 dark:shadow-indigo-400/20">
+                  <div className="absolute -right-4 -top-4 w-24 h-24 bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors rounded-full blur-2xl group-hover:bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors transition-all" />
+                  <p className="text-xs font-bold text-primary dark:text-primary dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1">
+                    <BarChart className="w-4 h-4" /> Credit Recovery
+                  </p>
+                  <p className="text-4xl font-black text-primary dark:text-primary dark:text-indigo-400">{data.creditRecoveryRate}%</p>
+                </div>
+                 <div className="glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all flex flex-col gap-2 relative overflow-hidden group border-indigo-500/20 dark:border-indigo-400/20 dark:border-indigo-500/20 dark:border-indigo-400/20 shadow-lg shadow-indigo-500/20 dark:shadow-indigo-400/20">
+                  <div className="absolute -right-4 -top-4 w-24 h-24 bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors rounded-full blur-2xl group-hover:bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors transition-all" />
+                  <p className="text-xs font-bold text-primary dark:text-primary dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1">
+                    <TrendingUp className="w-4 h-4" /> Collection Effic.
+                  </p>
+                  <p className="text-4xl font-black text-primary dark:text-primary dark:text-indigo-400">{data.collectionEfficiency}%</p>
+                </div>
+              </div>
+
+              {/* Main Charts Area */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <div className="glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all h-full">
+                  <div className="flex items-center gap-2 mb-6">
+                     <div className="w-10 h-10 rounded-xl bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors flex items-center justify-center">
+                        <DollarSign className="w-5 h-5 text-primary dark:text-indigo-400" />
+                     </div>
+                     <div>
+                       <h2 className="text-lg font-black text-foreground">Top Performing Shops</h2>
+                       <p className="text-xs text-muted-foreground font-medium">By revenue originated in {period}</p>
+                     </div>
+                  </div>
+
+                   <div className="space-y-4">
+                     {data.topShops.length === 0 ? (
+                        <p className="text-center text-sm text-muted-foreground py-10">No revenue data for this period.</p>
+                     ) : (
+                        data.topShops.map((shop, i) => (
+                          <div key={i} className="flex items-center gap-4 group">
+                             <div className="w-8 flex-shrink-0 text-center font-bold text-muted-foreground group-hover:text-primary dark:text-indigo-400 transition-colors">
+                               #{i + 1}
+                             </div>
+                             <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-end mb-1">
+                                   <p className="font-bold text-sm text-foreground truncate">{shop.shopName}</p>
+                                   <p className="font-black text-sm text-primary dark:text-primary dark:text-indigo-400">₹{shop.revenue}</p>
+                                </div>
+                                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                   <div 
+                                    
+                                    
+                                    
+                                     className="h-full bg-primary rounded-full"
+                                   />
+                                </div>
+                             </div>
+                          </div>
+                        ))
+                     )}
+                   </div>
+                </div>
+
+                <div className="glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all flex flex-col items-center justify-center text-center p-10 bg-gradient-to-br from-background to-muted/20">
+                     <div className="w-24 h-24 mb-6 rounded-full bg-gradient-to-tr from-primary to-indigo-500 flex items-center justify-center shadow-2xl shadow-indigo-500/20 dark:shadow-indigo-400/20">
+                        <Zap className="w-12 h-12 text-white" />
+                     </div>
+                     <h3 className="text-2xl font-black text-foreground tracking-tight mb-2">Platform Health is Excellent</h3>
+                     <p className="text-muted-foreground text-sm max-w-sm">
+                        Credit recovery is at {data.creditRecoveryRate}% and collection efficiency stands at {data.collectionEfficiency}% for the selected period.
+                     </p>
+                </div>
+
+              </div>
+
+            </div>
+          )}
+
+        </div>
+      </DashboardLayout>
+    </ProtectedRoute>
+  );
+}
+

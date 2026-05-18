@@ -1,0 +1,337 @@
+// Prisma Schema for Smart Credit Management System
+// Database: MongoDB
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// =====================================================
+// USER MODEL (Base authentication)
+// =====================================================
+model User {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  email      String?   @unique
+  phone      String?   @unique
+  role       Role
+  isActive   Boolean   @default(true)
+  lastLogin  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  admin      Admin?
+  shopOwner  ShopOwner?
+  customer   Customer?
+  auditLogs  AuditLog[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  SHOP_OWNER
+  CUSTOMER
+}
+
+// =====================================================
+// ADMIN MODEL
+// =====================================================
+model Admin {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String   @unique @db.ObjectId
+  name         String
+  passwordHash String
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("admins")
+}
+
+// =====================================================
+// SHOP MODEL
+// =====================================================
+model Shop {
+  id        String     @id @default(auto()) @map("_id") @db.ObjectId
+  shopName  String
+  address   String
+  city      String?
+  state     String?
+  pincode   String?
+  phone     String
+  email     String
+  status    ShopStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  shopOwner    ShopOwner?
+  customers    Customer[]
+  products     Product[]
+  transactions Transaction[]
+  payments     Payment[]
+
+  @@map("shops")
+}
+
+enum ShopStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+}
+
+// =====================================================
+// SHOP OWNER MODEL
+// =====================================================
+model ShopOwner {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String   @unique @db.ObjectId
+  shopId       String   @unique @db.ObjectId
+  ownerName    String
+  passwordHash String?
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@map("shop_owners")
+}
+
+// =====================================================
+// CUSTOMER MODEL
+// =====================================================
+model Customer {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String         @unique @db.ObjectId
+  shopId        String         @db.ObjectId
+  customerName  String
+  address       String?
+  workplace     String?
+  photoUrl      String?
+  totalCredit   Float          @default(0)
+  totalPaid     Float          @default(0)
+  creditBalance Float          @default(0)
+  status        CustomerStatus @default(ACTIVE)
+  joinDate      DateTime       @default(now())
+  lastPurchase  DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  payments     Payment[]
+
+  @@map("customers")
+  @@index([shopId])
+  @@index([status])
+}
+
+enum CustomerStatus {
+  ACTIVE
+  OVERDUE
+  CLEARED
+}
+
+// =====================================================
+// PRODUCT MODEL
+// =====================================================
+model Product {
+  id           String        @id @default(auto()) @map("_id") @db.ObjectId
+  shopId       String        @db.ObjectId
+  productName  String
+  category     String?
+  unit         String
+  pricePerUnit Float
+  photoUrl     String?
+  stockStatus  StockStatus   @default(AVAILABLE)
+  description  String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  shop             Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  transactionItems TransactionItem[]
+
+  @@map("products")
+  @@index([shopId])
+  @@index([isActive])
+}
+
+enum StockStatus {
+  AVAILABLE
+  LOW_STOCK
+  OUT_OF_STOCK
+}
+
+// =====================================================
+// TRANSACTION MODEL (Credit Sales)
+// =====================================================
+model Transaction {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  shopId          String        @db.ObjectId
+  customerId      String        @db.ObjectId
+  transactionType TransactionType
+  totalAmount     Float
+  paymentStatus   PaymentStatus @default(PENDING)
+  amountPaid      Float         @default(0)
+  remainingBalance Float?
+  notes           String?
+  transactionDate DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+
+  shop     Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  customer Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  items    TransactionItem[]
+  payments Payment[]
+
+  @@map("transactions")
+  @@index([shopId])
+  @@index([customerId])
+  @@index([transactionDate])
+  @@index([paymentStatus])
+  @@index([transactionType])
+  @@index([shopId, transactionType, transactionDate])
+  @@index([shopId, paymentStatus])
+  @@index([shopId, transactionType, notes])
+}
+
+enum TransactionType {
+  CREDIT_SALE
+  PAYMENT
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIAL
+  PAID
+}
+
+// =====================================================
+// TRANSACTION ITEMS (Products in each sale)
+// =====================================================
+model TransactionItem {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  transactionId String   @db.ObjectId
+  productId     String   @db.ObjectId
+  quantity      Float
+  unitPrice     Float
+  subtotal      Float
+  createdAt     DateTime @default(now())
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("transaction_items")
+  @@index([transactionId])
+  @@index([productId])
+}
+
+// =====================================================
+// PAYMENT MODEL
+// =====================================================
+model Payment {
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
+  transactionId String?       @db.ObjectId
+  customerId    String        @db.ObjectId
+  shopId        String        @db.ObjectId
+  amount        Float
+  paymentMethod PaymentMethod
+  paymentDate   DateTime      @default(now())
+  receiptNumber String        @unique
+  notes         String?
+  createdAt     DateTime      @default(now())
+
+  transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  customer    Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  shop        Shop         @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+  @@index([shopId])
+  @@index([customerId])
+  @@index([paymentDate])
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  CARD
+  BANK_TRANSFER
+}
+
+// =====================================================
+// OTP VERIFICATION (Temporary storage)
+// =====================================================
+model OTPVerification {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  identifier String
+  otp        String
+  otpType    OTPType
+  attempts   Int      @default(0)
+  isVerified Boolean  @default(false)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@map("otp_verifications")
+}
+
+enum OTPType {
+  REGISTRATION
+  LOGIN
+}
+
+// =====================================================
+// NOTIFICATION MODEL (SMS/Email logs)
+// =====================================================
+model Notification {
+  id        String             @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String?            @db.ObjectId
+  type      NotificationType
+  recipient String
+  subject   String?
+  message   String
+  status    NotificationStatus @default(PENDING)
+  sentAt    DateTime?
+  createdAt DateTime           @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+enum NotificationType {
+  SMS
+  EMAIL
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+// =====================================================
+// AUDIT LOG (System activity tracking)
+// =====================================================
+model AuditLog {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String?  @db.ObjectId
+  action     String
+  entityType String?
+  entityId   String?
+  details    String?  // JSON string
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}

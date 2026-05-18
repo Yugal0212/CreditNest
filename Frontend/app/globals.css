@@ -1,0 +1,1066 @@
+@import 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap';
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark, .dark *));
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --secondary: #14b8a6;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #4f46e5;
+  --accent-foreground: #ffffff;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #4f46e5;
+  --chart-1: #4f46e5;
+  --chart-2: #14b8a6;
+  --chart-3: #22c55e;
+  --chart-4: #64748b;
+  --chart-5: #0f172a;
+  --radius: 0.75rem;
+  --sidebar: #f8fafc;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #4f46e5;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e2e8f0;
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #4f46e5;
+}
+
+.dark {
+  --background: #020617;
+  --foreground: #f8fafc;
+  --card: #090e1a; /* slightly elevated from 950 */
+  --card-foreground: #f8fafc;
+  --popover: #090e1a;
+  --popover-foreground: #f8fafc;
+  --primary: #818cf8; /* indigo-400 */
+  --primary-foreground: #ffffff;
+  --secondary: #38bdf8; /* cyan-400 */
+  --secondary-foreground: #020617;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #1e293b;
+  --accent-foreground: #f8fafc;
+  --destructive: #f87171;
+  --destructive-foreground: #020617;
+  --border: rgba(255, 255, 255, 0.08); /* crisp 1px SaaS outline */
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: #818cf8;
+  --sidebar: #020617; /* match background for sleek flow */
+  --sidebar-foreground: #f8fafc;
+  --sidebar-border: rgba(255, 255, 255, 0.05); /* very subtle sidebar separator */
+  --sidebar-primary: #818cf8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1e293b;
+  --sidebar-accent-foreground: #f8fafc;
+  --sidebar-ring: #818cf8;
+}
+
+@theme inline {
+  --font-sans: 'Inter', 'Poppins', 'Geist', 'Geist Fallback';
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: var(--foreground);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  p {
+    color: var(--foreground);;
+  }
+
+  button,
+  .btn,
+  a[role='button'] {
+    border-radius: var(--radius);
+    transition: background-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  }
+
+  button:focus-visible,
+  a[role='button']:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  input,
+  textarea,
+  select {
+    border-radius: calc(var(--radius) - 2px);
+    border: 1px solid var(--input);
+    background-color: var(--card);
+    color: var(--foreground);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 3px rgb(79 70 229 / 0.15);
+  }
+
+  table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+  }
+
+  th,
+  td {
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 1rem;
+    color: var(--foreground);
+  }
+
+  tbody tr:hover {
+    background-color: var(--muted);
+  }
+
+  nav {
+    background-color: color-mix(in srgb, var(--background) 80%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  @keyframes float {
+
+    0%,
+    100% {
+      transform: translateY(0px);
+    }
+
+    50% {
+      transform: translateY(-12px);
+    }
+  }
+
+  @keyframes pulse-glow {
+
+    0%,
+    100% {
+      opacity: 1;
+      box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.35);
+    }
+
+    50% {
+      opacity: 0.8;
+      box-shadow: 0 0 0 10px rgba(20, 184, 166, 0);
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/* ============================================================
+   Landing + Auth dark-mode overrides
+   These pages use hardcoded light palette classes.
+   Scope overrides to .landing-page and .auth-page only.
+   ============================================================ */
+.dark .landing-page,
+.dark .auth-page {
+  background-color: #0b1220;
+  color: #e2e8f0;
+}
+
+/* Backgrounds */
+.dark .landing-page .bg-white,
+.dark .auth-page .bg-white {
+  background-color: #0f172a !important;
+}
+
+.dark .landing-page .bg-\[\#F4F8FC\],
+.dark .landing-page .bg-\[\#F5F0E8\],
+.dark .landing-page .bg-\[\#F8FBFE\],
+.dark .landing-page .bg-\[\#F9F6F2\],
+.dark .landing-page .bg-\[\#FAFAFA\],
+.dark .landing-page .bg-\[\#F0EBE3\],
+.dark .landing-page .bg-\[\#EFF6FF\],
+.dark .landing-page .bg-\[\#FEF2F2\],
+.dark .landing-page .bg-\[\#EAF2FB\],
+.dark .landing-page .bg-\[\#EDFAF2\],
+.dark .landing-page .bg-\[\#FEF9EC\],
+.dark .auth-page .bg-\[\#F4F8FC\],
+.dark .auth-page .bg-\[\#F5F0E8\],
+.dark .auth-page .bg-\[\#F8FBFE\],
+.dark .auth-page .bg-\[\#F9F6F2\],
+.dark .auth-page .bg-\[\#FAFAFA\],
+.dark .auth-page .bg-\[\#F0EBE3\],
+.dark .auth-page .bg-\[\#EFF6FF\],
+.dark .auth-page .bg-\[\#FEF2F2\],
+.dark .auth-page .bg-\[\#EAF2FB\],
+.dark .auth-page .bg-\[\#EDFAF2\],
+.dark .auth-page .bg-\[\#FEF9EC\] {
+  background-color: #0f172a !important;
+}
+
+/* Borders */
+.dark .landing-page .border-\[\#E8EEF4\],
+.dark .landing-page .border-\[\#E0EBF5\],
+.dark .landing-page .border-\[\#E5E7EB\],
+.dark .landing-page .border-\[\#F0F4F8\],
+.dark .landing-page .border-\[\#F3EEE8\],
+.dark .landing-page .border-\[\#EDE8E0\],
+.dark .landing-page .border-\[\#E0D8CC\],
+.dark .landing-page .border-\[\#D4E8F7\],
+.dark .landing-page .border-\[\#CDDCEC\],
+.dark .landing-page .border-\[\#CDD8E3\],
+.dark .landing-page .border-\[\#F0EBE3\],
+.dark .auth-page .border-\[\#E8EEF4\],
+.dark .auth-page .border-\[\#E0EBF5\],
+.dark .auth-page .border-\[\#E5E7EB\],
+.dark .auth-page .border-\[\#F0F4F8\],
+.dark .auth-page .border-\[\#F3EEE8\],
+.dark .auth-page .border-\[\#EDE8E0\],
+.dark .auth-page .border-\[\#E0D8CC\],
+.dark .auth-page .border-\[\#D4E8F7\],
+.dark .auth-page .border-\[\#CDDCEC\],
+.dark .auth-page .border-\[\#CDD8E3\],
+.dark .auth-page .border-\[\#F0EBE3\] {
+  border-color: #1f2937 !important;
+}
+
+/* Text colors */
+.dark .landing-page .text-\[\#0D2235\],
+.dark .landing-page .text-\[\#111827\],
+.dark .landing-page .text-\[\#374151\],
+.dark .auth-page .text-\[\#0D2235\],
+.dark .auth-page .text-\[\#111827\],
+.dark .auth-page .text-\[\#374151\] {
+  color: #e2e8f0 !important;
+}
+
+.dark .landing-page .text-\[\#4B6B85\],
+.dark .landing-page .text-\[\#6B7280\],
+.dark .landing-page .text-\[\#6B8FA8\],
+.dark .landing-page .text-\[\#8FA8BC\],
+.dark .landing-page .text-\[\#A3A3A3\],
+.dark .landing-page .text-\[\#C9BEB5\],
+.dark .landing-page .text-\[\#D1D5DB\],
+.dark .auth-page .text-\[\#4B6B85\],
+.dark .auth-page .text-\[\#6B7280\],
+.dark .auth-page .text-\[\#6B8FA8\],
+.dark .auth-page .text-\[\#8FA8BC\],
+.dark .auth-page .text-\[\#A3A3A3\],
+.dark .auth-page .text-\[\#C9BEB5\],
+.dark .auth-page .text-\[\#D1D5DB\] {
+  color: #94a3b8 !important;
+}
+
+.dark .landing-page .text-\[\#1A5276\],
+.dark .auth-page .text-\[\#1A5276\] {
+  color: #93c5fd !important;
+}
+
+/* Placeholder colors in auth forms */
+.dark .auth-page .placeholder\:text-\[\#D1D5DB\]::placeholder {
+  color: #64748b !important;
+}
+
+@layer utilities {
+
+  /* Primary gradient for key buttons/highlights only */
+  .bg-gradient-primary,
+  .btn-primary,
+  button.bg-primary,
+  a.bg-primary {
+    background-image: linear-gradient(135deg, #4f46e5, #14b8a6);
+    background-color: transparent;
+  }
+
+  /* Glass Morphism — Light (teal-tinted, premium) */
+  .glass {
+    backdrop-filter: blur(18px) saturate(180%);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    background-color: color-mix(in srgb, var(--card) 82%, transparent);
+    border: 1px solid var(--border);
+  }
+
+  .glass-card {
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+  @media (min-width: 768px) {
+    .glass-card {
+      padding: 1.75rem;
+    }
+  }
+
+  /* Light mode glow effect */
+  .light-glow {
+    box-shadow: 0 0 28px -14px rgb(79 70 229 / 0.35), 0 4px 18px rgb(20 184 166 / 0.2);
+  }
+
+  /* Premium light card surface */
+  .light-card-gradient {
+    background: var(--card);
+    border: 1px solid var(--border);
+    box-shadow: 0 6px 20px rgb(0 0 0 / 0.08); /* fixed shadow to work generically */
+  }
+
+  /* Section background surface */
+  .bg-light-mesh {
+    background-color: var(--background);
+  }
+
+}
+
+/* Google Translate widget visibility fix */
+
+/* Google Translate widget visibility fix */
+.goog-te-banner-frame {
+  display: none !important;
+}
+
+body {
+  top: 0 !important;
+}
+
+.goog-te-gadget {
+  font-size: 0 !important;
+}
+
+.goog-te-gadget select {
+  font-size: 0.8rem;
+  border: none;
+  outline: none;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+}
+
+/* ===== SMART CREDIT / UDAR — GLOBAL DESIGN TOKENS ===== */
+:root {
+  --sc-navy: #1A5276;
+  --sc-navy-dark: #154360;
+  --sc-navy-deeper: #0D2B3E;
+  --sc-navy-light: #AED6F1;
+  --sc-navy-pale: #EAF2FB;
+
+  --sc-gold: #D4A017;
+  --sc-gold-light: #FAE5A0;
+  --sc-gold-pale: #FEF9ED;
+
+  --sc-cream: #F5F0E8;
+  --sc-white: #FFFFFF;
+  --sc-dark: #2E4057;
+  --sc-text: #1C2833;
+  --sc-muted: #6B7280;
+  --sc-border: #E0D8CC;
+
+  --sc-success: #1E8449;
+  --sc-danger: #CB4335;
+  --sc-warning: #D4A017;
+  --sc-info: #2E86C1;
+
+  --sc-radius: 10px;
+  --sc-radius-sm: 6px;
+  --sc-shadow: 0 2px 12px rgba(26, 82, 118, 0.10);
+  --sc-shadow-lg: 0 6px 30px rgba(26, 82, 118, 0.15);
+}
+
+body {
+  background-color: var(--sc-cream);
+  color: var(--sc-text);
+}
+
+/* Override Bootstrap primary color */
+.btn-primary {
+  background: var(--sc-navy);
+  border-color: var(--sc-navy);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--sc-navy-dark);
+  border-color: var(--sc-navy-dark);
+}
+
+.btn-warning {
+  background: var(--sc-gold);
+  border-color: var(--sc-gold);
+  color: #fff;
+  font-weight: 600;
+}
+
+.btn-warning:hover {
+  background: #b8890e;
+  border-color: #b8890e;
+  color: #fff;
+}
+
+.card {
+  border: 1px solid var(--sc-border);
+  border-radius: var(--sc-radius);
+  box-shadow: var(--sc-shadow);
+}
+
+.badge.bg-success {
+  background: var(--sc-success) !important;
+}
+
+.badge.bg-danger {
+  background: var(--sc-danger) !important;
+}
+
+.badge.bg-warning {
+  background: var(--sc-gold) !important;
+  color: #fff !important;
+}
+
+.badge.bg-info {
+  background: var(--sc-info) !important;
+}
+
+.text-primary {
+  color: var(--sc-navy) !important;
+}
+
+.bg-primary {
+  background-color: var(--sc-navy) !important;
+}
+
+
+/* ============================================================
+   SMART CREDIT — UNIFIED DASHBOARD THEME
+   Applies to: Admin, Shop Owner, Customer dashboards
+   All wrapped by DashboardLayout → .admin-theme
+   ============================================================ */
+
+/* ── Base wrapper — background is set by DashboardLayout inline ── */
+.admin-theme {
+  color: #1C2833;
+}
+
+/* ── Typography ───────────────────────────────────────────── */
+.admin-theme h1,
+.admin-theme h2,
+.admin-theme h3,
+.admin-theme h4 {
+  letter-spacing: -0.01em;
+}
+
+.admin-theme h1 { font-weight: 800; letter-spacing: -0.02em; }
+.admin-theme h2 { font-weight: 700; }
+
+.admin-theme span { color: inherit; }
+
+html:not(.dark) .admin-theme .text-foreground      { color: #1C2833  !important; }
+html:not(.dark) .admin-theme .text-card-foreground { color: #1C2833  !important; }
+html:not(.dark) .admin-theme .text-muted-foreground{ color: #6B7280  !important; }
+html:not(.dark) .admin-theme .text-primary         { color: #1A5276  !important; }
+html:not(.dark) .admin-theme .text-indigo-400,
+html:not(.dark) .admin-theme .text-indigo-500,
+html:not(.dark) .admin-theme .text-teal-600,
+html:not(.dark) .admin-theme .text-teal-700        { color: #1A5276  !important; }
+html:not(.dark) .admin-theme .text-red-500,
+html:not(.dark) .admin-theme .text-red-600         { color: #CB4335  !important; }
+html:not(.dark) .admin-theme .text-green-500,
+html:not(.dark) .admin-theme .text-green-600,
+html:not(.dark) .admin-theme .text-emerald-600     { color: #1E8449  !important; }
+
+/* ── Backgrounds (light mode only) ────────────────────────── */
+html:not(.dark) .admin-theme .bg-background        { background-color: #F5F0E8 !important; }
+html:not(.dark) .admin-theme .bg-primary           { background-color: #1A5276 !important; }
+html:not(.dark) .admin-theme .bg-card,
+html:not(.dark) .admin-theme .bg-popover           { background-color: #FFFFFF !important; }
+
+html:not(.dark) .admin-theme .bg-muted,
+html:not(.dark) .admin-theme .bg-muted\/40,
+html:not(.dark) .admin-theme .bg-muted\/80         { background-color: #FAFAF7 !important; }
+
+html:not(.dark) .admin-theme .bg-indigo-500\/5,
+html:not(.dark) .admin-theme .bg-indigo-500\/10,
+html:not(.dark) .admin-theme .bg-indigo-500\/20,
+html:not(.dark) .admin-theme .bg-indigo-400\/10,
+html:not(.dark) .admin-theme .bg-indigo-400\/20    { background-color: #EAF2FB !important; }
+
+html:not(.dark) .admin-theme .bg-red-500\/10       { background-color: #FADBD8 !important; }
+html:not(.dark) .admin-theme .bg-green-500\/10     { background-color: #D4EFDF !important; }
+
+/* ── Borders (light mode only) ────────────────────────────── */
+html:not(.dark) .admin-theme .border-border,
+html:not(.dark) .admin-theme .border-border\/40,
+html:not(.dark) .admin-theme .border-border\/50,
+html:not(.dark) .admin-theme .border-border\/60    { border-color: #E0D8CC !important; }
+
+html:not(.dark) .admin-theme .border-indigo-500\/20,
+html:not(.dark) .admin-theme .border-indigo-400\/20{ border-color: #C5D9EC !important; }
+
+html:not(.dark) .admin-theme .border-red-500\/20   { border-color: #F5C6C2 !important; }
+
+/* ── Cards & Glass (light mode only) ──────────────────────── */
+html:not(.dark) .admin-theme .glass-card,
+html:not(.dark) .admin-theme .glass {
+  background:    #FFFFFF           !important;
+  border:        1px solid #E0D8CC !important;
+  border-radius: 12px;
+  box-shadow:    0 2px 12px rgba(26, 82, 118, 0.08);
+  backdrop-filter: none;
+}
+
+html:not(.dark) .admin-theme .bg-card.border,
+html:not(.dark) .admin-theme .rounded-xl.bg-card,
+html:not(.dark) .admin-theme .rounded-2xl.bg-card,
+html:not(.dark) .admin-theme [class*='rounded'].bg-card {
+  background: #FFFFFF     !important;
+  border:     1px solid #E0D8CC !important;
+  box-shadow: 0 2px 12px rgba(26, 82, 118, 0.08);
+}
+
+/* ── Gradients (icon circles & stat card icons, light only) ─ */
+html:not(.dark) .admin-theme .bg-gradient-to-br,
+html:not(.dark) .admin-theme [class*='bg-gradient-to']:not(.text-white) {
+  background-image: none !important;
+  background-color: #EAF2FB !important;
+}
+
+/* Stat/quick-action icon circles: swap teal/indigo → navy */
+.admin-theme .from-teal-500,
+.admin-theme .from-teal-600,
+.admin-theme .to-teal-600,
+.admin-theme .from-indigo-500,
+.admin-theme .from-primary,
+.admin-theme .to-indigo-500,
+.admin-theme .to-indigo-600,
+.admin-theme .from-indigo-500\/20,
+.admin-theme .to-indigo-600\/20 {
+  --tw-gradient-from:  #1A5276 var(--tw-gradient-from-position) !important;
+  --tw-gradient-to:    #154360 var(--tw-gradient-to-position)   !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+  background-image: linear-gradient(135deg, #1A5276, #154360) !important;
+}
+
+/* Icon circles that use bg-gradient-to-br FROM primary TO indigo */
+.admin-theme [class*='from-primary'][class*='to-indigo'],
+.admin-theme [class*='from-teal'][class*='to-teal'] {
+  background-image: linear-gradient(135deg, #1A5276, #154360) !important;
+}
+
+/* ── Shadows ──────────────────────────────────────────────── */
+.admin-theme .shadow-sm,
+.admin-theme .shadow-md,
+.admin-theme .shadow-lg,
+.admin-theme .shadow-xl {
+  box-shadow: 0 2px 12px rgba(26, 82, 118, 0.08) !important;
+}
+
+.admin-theme [class*='shadow-indigo'],
+.admin-theme [class*='shadow-teal'] {
+  box-shadow: 0 4px 16px rgba(26, 82, 118, 0.12) !important;
+}
+
+/* ── Ring / outline ───────────────────────────────────────── */
+.admin-theme .ring-1,
+.admin-theme .ring-2 {
+  --tw-ring-color: #E0D8CC !important;
+}
+
+/* ── Hover states ─────────────────────────────────────────── */
+.admin-theme .hover\:bg-muted:hover,
+.admin-theme .hover\:bg-muted\/80:hover,
+.admin-theme .hover\:bg-slate-50:hover,
+.admin-theme .hover\:bg-slate-100:hover,
+.admin-theme .hover\:bg-background:hover,
+.admin-theme .hover\:bg-indigo-500\/20:hover,
+.admin-theme .dark\:hover\:bg-slate-800\/50:hover,
+.admin-theme .dark\:hover\:bg-slate-800:hover  { background: #F0EBE0 !important; }
+
+.admin-theme .hover\:text-teal-700:hover,
+.admin-theme .hover\:text-indigo-300:hover,
+.admin-theme .hover\:text-indigo-600:hover     { color: #154360 !important; }
+
+.admin-theme .hover\:border-indigo-500\/20:hover,
+.admin-theme .hover\:border-indigo-400\/20:hover { border-color: #C5D9EC !important; }
+
+/* ── Inputs (light mode only — dark uses .dark .admin-theme below) ── */
+html:not(.dark) .admin-theme input:not([type='checkbox']):not([type='radio']),
+html:not(.dark) .admin-theme select,
+html:not(.dark) .admin-theme textarea {
+  background-color: #FFFFFF    !important;
+  border:           1px solid #E0D8CC !important;
+  color:            #1C2833    !important;
+  border-radius:    10px;
+}
+
+html:not(.dark) .admin-theme input::placeholder,
+html:not(.dark) .admin-theme textarea::placeholder { color: #7C8B98 !important; }
+
+html:not(.dark) .admin-theme input:focus,
+html:not(.dark) .admin-theme select:focus,
+html:not(.dark) .admin-theme textarea:focus {
+  outline:      none;
+  border-color: #1A5276 !important;
+  box-shadow:   0 0 0 3px rgba(26, 82, 118, 0.14) !important;
+}
+
+/* ── Buttons ──────────────────────────────────────────────── */
+.admin-theme button { transition: all 0.2s ease; }
+
+/* Solid primary buttons */
+.admin-theme button.bg-primary,
+.admin-theme button[class*='bg-[#1A5276]'],
+.admin-theme [class*='bg-gradient-to-r'][class*='from-primary'],
+.admin-theme [class*='bg-gradient-to-r'][class*='from-indigo'] {
+  background:    #1A5276 !important;
+  background-image: none !important;
+  color:         #FFFFFF !important;
+  border:        1px solid #1A5276 !important;
+  box-shadow:    0 2px 8px rgba(26, 82, 118, 0.20) !important;
+}
+
+.admin-theme button.bg-primary:hover,
+.admin-theme button[class*='bg-[#1A5276]']:hover,
+.admin-theme [class*='from-primary']:not(.sidebar *):hover {
+  background: #154360 !important;
+  background-image: none !important;
+  border-color: #154360 !important;
+}
+
+/* Outline / ghost action buttons */
+.admin-theme button[class*='border-[#1A5276]'],
+.admin-theme .admin-action-btn {
+  background:   transparent !important;
+  border:       1px solid #1A5276 !important;
+  color:        #1A5276 !important;
+  border-radius: 6px;
+}
+
+.admin-theme button[class*='border-[#1A5276]']:hover,
+.admin-theme .admin-action-btn:hover { background: #F0EBE0 !important; }
+
+/* Status filter toggle buttons */
+.admin-theme button.bg-primary.text-primary-foreground {
+  background:   #1A5276 !important;
+  color:        #FFFFFF !important;
+  border:       1px solid #1A5276 !important;
+}
+
+/* Approve / reject inline buttons */
+.admin-theme .bg-red-500\/10 { background: #FEF0EE !important; }
+.admin-theme .bg-red-500\/10:hover,
+.admin-theme .hover\:bg-red-500\/20:hover { background: #FADBD8 !important; }
+
+/* Disabled state */
+.admin-theme button:disabled { opacity: 0.55 !important; cursor: not-allowed !important; }
+
+/* ── Spinner ──────────────────────────────────────────────── */
+.admin-theme .text-primary.animate-spin,
+.admin-theme svg.animate-spin { color: #1A5276 !important; }
+.admin-theme .dark\:text-indigo-400.animate-spin { color: #1A5276 !important; }
+
+/* ── Tables ───────────────────────────────────────────────── */
+.admin-theme table {
+  border:        1px solid #E0D8CC;
+  border-radius: 12px;
+  overflow:      hidden;
+  background:    #FFFFFF;
+}
+
+.admin-theme thead th {
+  background:    #EAF2FB;
+  color:         #1A5276;
+  font-weight:   600;
+  border-bottom: 1px solid #E0D8CC;
+  font-size:     13px;
+}
+
+.admin-theme tbody tr:nth-child(odd)  { background: #FFFFFF; }
+.admin-theme tbody tr:nth-child(even) { background: #FAFAF7; }
+.admin-theme tbody tr:hover            { background: #F0EBE0; }
+
+.admin-theme td { border-bottom: 1px solid #E0D8CC; color: #1C2833; }
+
+/* ── Status Badges ────────────────────────────────────────── */
+.admin-theme .status-approved,
+.admin-theme [class*='bg-indigo'][class*='text-primary'] {
+  background: #D4EFDF !important;
+  color:      #1E8449 !important;
+  border-color: #BEE5C8 !important;
+}
+
+.admin-theme .status-pending { background: #FEF9ED; color: #9A7D0A; }
+.admin-theme .status-rejected { background: #FADBD8; color: #CB4335; }
+
+/* Shop status pill overrides */
+.admin-theme [class*='bg-indigo-500/10'][class*='text-primary'] {
+  background:   #D4EFDF  !important;
+  color:        #1E8449  !important;
+  border-color: #BEE5C8  !important;
+}
+
+/* ── Card containers (plain surface cards) ────────────────── */
+.admin-theme .admin-card,
+.admin-theme .admin-chart-card {
+  background:    #FFFFFF;
+  border:        1px solid #E0D8CC;
+  border-radius: 12px;
+  box-shadow:    0 2px 12px rgba(26, 82, 118, 0.08);
+}
+
+.admin-theme .admin-chart-card-header {
+  color:         #2E4057;
+  font-weight:   600;
+  border-bottom: 1px solid #E0D8CC;
+  padding-bottom: 0.75rem;
+}
+
+/* ── Alert / destructive banners ──────────────────────────── */
+.admin-theme .bg-destructive\/5   { background: #FEF3F2   !important; }
+.admin-theme .border-destructive\/20 { border-color: #F5C6C2 !important; }
+.admin-theme .border-dashed       { border-color: #DCCFBF  !important; }
+
+/* ── Notification / dropdown panel ───────────────────────── */
+.admin-theme [role='menu'],
+.admin-theme [data-radix-popper-content-wrapper] > div {
+  background:    #FFFFFF;
+  border:        1px solid #E0D8CC;
+  border-radius: 14px;
+  box-shadow:    0 8px 32px rgba(26, 82, 118, 0.12);
+}
+
+.admin-theme [data-highlighted] { background: #F0EBE0; color: #1C2833; }
+
+/* ── Dashboard content background ────────────────────────── */
+.admin-theme .dashboard-content {
+  background:
+    radial-gradient(1200px 420px at 12% -12%, rgba(212, 160, 23, 0.08), transparent 55%),
+    radial-gradient(900px 360px at 92% -22%, rgba(26, 82, 118, 0.08), transparent 55%),
+    #F5F0E8;
+}
+
+/* ── Rounded corners normalisation ───────────────────────── */
+.admin-theme .rounded-xl  { border-radius: 12px; }
+.admin-theme .rounded-2xl { border-radius: 16px; }
+
+/* ── Misc helper overrides ────────────────────────────────── */
+.admin-theme .bg-gray-500\/10   { background: #F0EBE0 !important; }
+.admin-theme .text-gray-500,
+.admin-theme .text-gray-600,
+.admin-theme .text-gray-700     { color: #6B7280 !important; }
+
+.admin-theme a.text-primary,
+.admin-theme a[class*='text-primary'] { color: #1A5276 !important; }
+.admin-theme a.text-primary:hover     { color: #154360 !important; }
+
+/* ── Bottom Nav Bar: now uses inline styles in component ─── */
+/* Legacy teal overrides kept for safety */
+.admin-theme .text-teal-500   { color: #1A5276 !important; }
+.admin-theme .bg-teal-500\/15 { background-color: #EAF2FB !important; }
+.admin-theme .text-gray-400   { color: #9EB4C5 !important; }
+
+/* ── Sidebar width fix ────────────────────────────────────── */
+@media (min-width: 768px) {
+  .admin-theme .md\:ml-\[240px\] { margin-left: 240px !important; }
+}
+
+/* ── Polished scrollbar for sidebar nav ───────────────────── */
+.admin-theme aside nav::-webkit-scrollbar { width: 0; }
+
+/* ── TopBar link hover override ───────────────────────────── */
+.admin-theme nav a:hover { color: #1A5276 !important; }
+
+/* ── Loading spinner keyframe ─────────────────────────────── */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Professional typography for all dashboard content ─────── */
+.admin-theme,
+.admin-theme * {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Smooth link transitions dashboard-wide ────────────────── */
+.admin-theme a { transition: color 0.15s, background 0.15s; }
+
+/* ── Remove default outline; we handle focus via borders ────── */
+.admin-theme button:focus-visible,
+.admin-theme a:focus-visible {
+  outline: 2px solid #1A5276;
+  outline-offset: 2px;
+}
+
+/* ── Dark Mode overrides for Admin Theme ── */
+.dark .admin-theme {
+  color: #f8fafc !important;
+}
+
+.dark .admin-theme .text-foreground,
+.dark .admin-theme .text-card-foreground {
+  color: #f8fafc !important;
+}
+
+.dark .admin-theme .text-muted-foreground {
+  color: #94a3b8 !important;
+}
+
+.dark .admin-theme .text-primary {
+  color: #818cf8 !important;
+}
+
+.dark .admin-theme .text-indigo-400,
+.dark .admin-theme .text-indigo-500,
+.dark .admin-theme .text-teal-600,
+.dark .admin-theme .text-teal-700 {
+  color: #818cf8 !important;
+}
+
+.dark .admin-theme .dark\:text-indigo-400,
+.dark .admin-theme .dark\:text-primary {
+  color: #818cf8 !important;
+}
+
+.dark .admin-theme .bg-background {
+  background-color: #020617 !important;
+}
+
+.dark .admin-theme .bg-card,
+.dark .admin-theme .bg-popover {
+  background-color: #090e1a !important;
+}
+
+.dark .admin-theme .bg-muted,
+.dark .admin-theme .bg-muted\/40,
+.dark .admin-theme .bg-muted\/80 {
+  background-color: #1e293b !important;
+}
+
+.dark .admin-theme .border-border,
+.dark .admin-theme .border-border\/40,
+.dark .admin-theme .border-border\/50,
+.dark .admin-theme .border-border\/60 {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.dark .admin-theme .glass-card,
+.dark .admin-theme .glass {
+  background: #090e1a !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark .admin-theme .bg-card.border,
+.dark .admin-theme .rounded-xl.bg-card,
+.dark .admin-theme .rounded-2xl.bg-card,
+.dark .admin-theme [class*='rounded'].bg-card {
+  background: #090e1a !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark .admin-theme input,
+.dark .admin-theme select,
+.dark .admin-theme textarea {
+  background-color: #090e1a !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #f8fafc !important;
+}
+
+.dark .admin-theme input::placeholder,
+.dark .admin-theme textarea::placeholder {
+  color: #64748b !important;
+}
+
+.dark .admin-theme input:focus,
+.dark .admin-theme select:focus,
+.dark .admin-theme textarea:focus {
+  border-color: #818cf8 !important;
+  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2) !important;
+}
+
+.dark .admin-theme table {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  background: #090e1a !important;
+}
+
+.dark .admin-theme thead th {
+  background: #1e293b !important;
+  color: #f8fafc !important;
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.dark .admin-theme tbody tr:nth-child(odd) {
+  background: #090e1a !important;
+}
+
+.dark .admin-theme tbody tr:nth-child(even) {
+  background: #0e1526 !important;
+}
+
+.dark .admin-theme tbody tr:hover {
+  background: #1e293b !important;
+}
+
+.dark .admin-theme td {
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+  color: #f8fafc !important;
+}
+
+.dark .admin-theme .admin-card,
+.dark .admin-theme .admin-chart-card {
+  background: #090e1a !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark .admin-theme .admin-chart-card-header {
+  color: #f8fafc !important;
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.dark .admin-theme [role='menu'],
+.dark .admin-theme [data-radix-popper-content-wrapper] > div {
+  background: #090e1a !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+.dark .admin-theme [data-highlighted] {
+  background: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+.dark .admin-theme .dashboard-content {
+  background:
+    radial-gradient(1200px 420px at 12% -12%, rgba(129, 140, 248, 0.08), transparent 55%),
+    radial-gradient(900px 360px at 92% -22%, rgba(56, 189, 248, 0.08), transparent 55%),
+    #020617 !important;
+}
+
+.dark .admin-theme .hover\:bg-muted:hover,
+.dark .admin-theme .hover\:bg-muted\/80:hover,
+.dark .admin-theme .hover\:bg-slate-50:hover,
+.dark .admin-theme .hover\:bg-slate-100:hover,
+.dark .admin-theme .hover\:bg-background:hover,
+.dark .admin-theme .hover\:bg-indigo-500\/20:hover,
+.dark .admin-theme .dark\:hover\:bg-slate-800\/50:hover,
+.dark .admin-theme .dark\:hover\:bg-slate-800:hover {
+  background: #1e293b !important;
+}
+
+.dark .admin-theme .text-teal-500 {
+  color: #818cf8 !important;
+}
+
+.dark .admin-theme .bg-teal-500\/15 {
+  background-color: rgba(129, 140, 248, 0.15) !important;
+}
+
+.dark .admin-theme a.text-primary,
+.dark .admin-theme a[class*='text-primary'] {
+  color: #818cf8 !important;
+}
+
+.dark .admin-theme a.text-primary:hover {
+  color: #a5b4fc !important;
+}
+
+.dark .admin-theme .bg-indigo-500\/5,
+.dark .admin-theme .bg-indigo-500\/10,
+.dark .admin-theme .bg-indigo-500\/20,
+.dark .admin-theme .bg-indigo-400\/10,
+.dark .admin-theme .bg-indigo-400\/20 {
+  background-color: rgba(129, 140, 248, 0.15) !important;
+}
+
+.dark .admin-theme .border-indigo-500\/20,
+.dark .admin-theme .border-indigo-400\/20 {
+  border-color: rgba(129, 140, 248, 0.25) !important;
+}
+
+.dark .admin-theme button:focus-visible,
+.dark .admin-theme a:focus-visible {
+  outline: 2px solid #818cf8 !important;
+  outline-offset: 2px !important;
+}
+

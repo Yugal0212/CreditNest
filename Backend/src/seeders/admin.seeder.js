@@ -1,0 +1,76 @@
+require('dotenv').config();
+const bcrypt = require('bcryptjs');
+const prisma = require('../config/database');
+const logger = require('../utils/logger');
+
+/**
+ * Seed admin user
+ * Email: admin@scms.com
+ * Password: Admin@123
+ */
+const seedAdmin = async () => {
+  try {
+    logger.info('🌱 Starting admin seeder...');
+
+    // Check if admin already exists
+    const existingAdmin = await prisma.user.findFirst({
+      where: {
+        email: 'admin@scms.com',
+        role: 'ADMIN',
+      },
+    });
+
+    if (existingAdmin) {
+      logger.info('✅ Admin user already exists');
+      return;
+    }
+
+    // Hash password
+    const passwordHash = await bcrypt.hash('Admin@123', 12);
+
+    // Create admin user
+    const adminUser = await prisma.user.create({
+      data: {
+        email: 'admin@scms.com',
+        role: 'ADMIN',
+        admin: {
+          create: {
+            name: 'System Administrator',
+            passwordHash,
+            avatarUrl: 'https://ui-avatars.com/api/?name=Admin&size=500&background=667eea&color=fff',
+          },
+        },
+      },
+      include: {
+        admin: true,
+      },
+    });
+
+    logger.info('✅ Admin user created successfully');
+    logger.info('📧 Email: admin@scms.com');
+    logger.info('🔑 Password: Admin@123');
+    logger.info('⚠️  Please change the password after first login!');
+
+    return adminUser;
+  } catch (error) {
+    logger.error('❌ Admin seeder error:', error);
+    throw error;
+  } finally {
+    await prisma.$disconnect();
+  }
+};
+
+// Run seeder if called directly
+if (require.main === module) {
+  seedAdmin()
+    .then(() => {
+      logger.info('🎉 Seeding completed');
+      process.exit(0);
+    })
+    .catch((error) => {
+      logger.error('❌ Seeding failed:', error);
+      process.exit(1);
+    });
+}
+
+module.exports = seedAdmin;
