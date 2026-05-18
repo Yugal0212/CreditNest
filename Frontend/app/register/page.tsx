@@ -47,7 +47,6 @@ export default function RegisterPage() {
   const [email, setEmail]             = useState('');
   const [password, setPassword]       = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [otpMethod, setOtpMethod]     = useState<'email' | 'sms'>('sms');
   const [isLoading, setIsLoading]     = useState(false);
   const [error, setError]             = useState('');
 
@@ -88,20 +87,22 @@ export default function RegisterPage() {
           phone,
           email,
           password,
-          otpMethod,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
+        if (data.errors && Array.isArray(data.errors)) {
+          const errorMsgs = data.errors.map((e: any) => e.message).join('. ');
+          throw new Error(errorMsgs || data.message || 'Registration failed');
+        }
         throw new Error(data.message || 'Registration failed');
       }
 
       // Store registration data and redirect to OTP verification
       sessionStorage.setItem('pendingRegistration', JSON.stringify({
         identifier: data.identifier,
-        otpMethod: data.otpMethod,
         registrationData: data.registrationData,
         role: 'shop_owner'
       }));
@@ -240,8 +241,8 @@ export default function RegisterPage() {
               <div className="mb-8">
                 <div>
                   <p className="mb-2 text-[10.5px] font-black uppercase tracking-[0.32em] text-[#D4A017]">Secure Onboarding</p>
-                  <h2 className="text-[1.7rem] font-black leading-[1.1] tracking-[-0.022em] text-[#0D2235] dark:text-slate-100">Create your<br />shop owner account</h2>
-                  <p className="mt-2 text-[13px] text-[#A3A3A3] dark:text-slate-400">Complete details below to receive OTP verification.</p>
+                  <h2 className="text-[1.7rem] font-black leading-[1.1] tracking-[-0.022em] text-[#0D2235] dark:text-slate-100"><span>Create your</span><br /><span>shop owner account</span></h2>
+                  <p className="mt-2 text-[13px] text-[#A3A3A3] dark:text-slate-400"><span>Complete details below to receive OTP verification.</span></p>
                 </div>
 
                 <Link href="/login" className="mt-3 inline-flex rounded-xl border border-[#E5E7EB] dark:border-slate-800 bg-[#FAFAFA] dark:bg-slate-950 px-4 py-2 text-[12px] font-bold text-[#1A5276] dark:text-indigo-400 transition hover:bg-[#F5F0E8] dark:hover:bg-slate-900">
@@ -358,38 +359,19 @@ export default function RegisterPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-[12px] font-bold text-[#374151] dark:text-slate-300">Receive OTP Via</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setOtpMethod('sms')}
-                      className={`rounded-xl border px-3 py-2.5 text-[12px] font-bold transition ${
-                        otpMethod === 'sms'
-                          ? 'border-[#0D2235] dark:border-slate-800 bg-[#0D2235] dark:bg-slate-800 text-white shadow-[0_2px_12px_rgba(13,34,53,0.22)]'
-                          : 'border-[#E5E7EB] dark:border-slate-800 bg-[#FAFAFA] dark:bg-slate-950 text-[#6B7280] dark:text-slate-400 hover:border-[#1A5276]/40'
-                      }`}
-                    >
-                      SMS
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setOtpMethod('email')}
-                      className={`rounded-xl border px-3 py-2.5 text-[12px] font-bold transition ${
-                        otpMethod === 'email'
-                          ? 'border-[#0D2235] dark:border-slate-800 bg-[#0D2235] dark:bg-slate-800 text-white shadow-[0_2px_12px_rgba(13,34,53,0.22)]'
-                          : 'border-[#E5E7EB] dark:border-slate-800 bg-[#FAFAFA] dark:bg-slate-950 text-[#6B7280] dark:text-slate-400 hover:border-[#1A5276]/40'
-                      }`}
-                    >
-                      Email
-                    </button>
+                <div className="flex items-start gap-3 rounded-xl border border-[#E5E7EB] dark:border-slate-800 bg-[#FAFAFA] dark:bg-slate-950 px-4 py-3">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#EAF2FB] dark:bg-slate-800">
+                    <Mail className="h-3.5 w-3.5 text-[#1A5276] dark:text-indigo-400" />
                   </div>
+                  <p className="text-[12px] text-[#6B7280] dark:text-slate-400">
+                    We&apos;ll send a 6-digit OTP to your registered email and phone.
+                  </p>
                 </div>
 
                 {error && (
                   <div className="flex items-start gap-3 rounded-xl border border-[#FCA5A5]/50 bg-[#FEF2F2] px-4 py-3.5">
                     <AlertCircle className="mt-px h-4 w-4 shrink-0 text-[#DC2626]" />
-                    <p className="text-[12px] text-[#DC2626]">{error}</p>
+                    <p className="text-[12px] text-[#DC2626]"><span>{error}</span></p>
                   </div>
                 )}
 
@@ -442,4 +424,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-

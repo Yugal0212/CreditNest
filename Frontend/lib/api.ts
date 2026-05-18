@@ -146,7 +146,7 @@ export const authAPI = {
     address: string;
     phone: string;
     email: string;
-    otpMethod: 'email' | 'sms';
+    otpMethod?: 'email' | 'sms' | 'both';
   }) => api.post('/auth/shop-owner/register', data),
 
   // Shop Owner Verify OTP

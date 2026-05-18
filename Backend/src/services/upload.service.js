@@ -6,6 +6,43 @@ const logger = require('../utils/logger');
  */
 const uploadToCloudinary = (buffer, folder, fileName) => {
   return new Promise((resolve, reject) => {
+    // Check if Cloudinary is configured (Forced to local storage to avoid errors)
+    if (true || !process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      logger.info('Cloudinary not configured. Falling back to local storage.');
+      
+      const fs = require('fs');
+      const path = require('path');
+      
+      // Normalize folder path for Windows
+      const normalizedFolder = folder.replace(/\//g, path.sep);
+      const uploadDir = path.join(__dirname, '../../uploads', normalizedFolder);
+      
+      logger.info(`Target upload directory: ${uploadDir}`);
+      
+      try {
+        if (!fs.existsSync(uploadDir)) {
+          logger.info('Creating upload directory...');
+          fs.mkdirSync(uploadDir, { recursive: true });
+          logger.info('Upload directory created.');
+        }
+        
+        const filePath = path.join(uploadDir, `${fileName}.jpg`);
+        logger.info(`Writing file to: ${filePath}`);
+        fs.writeFileSync(filePath, buffer);
+        logger.info('File written successfully.');
+        
+        logger.info(`File saved locally: ${filePath}`);
+        
+        const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+        return resolve({
+          secure_url: `${baseUrl}/uploads/${folder}/${fileName}.jpg`
+        });
+      } catch (err) {
+        logger.error('Local upload error:', err);
+        return reject(err);
+      }
+    }
+
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder: folder,

@@ -890,15 +890,16 @@ Request Body:
   "ownerName": "Ramesh Kumar",
   "address": "123 Main Street, Ahmedabad",
   "phone": "9876543210",
-  "email": "ramesh@store.com",
-  "otpMethod": "sms" // or "email"
+  "email": "ramesh@store.com"
 }
+
+OTP is sent to both the registered email and phone.
 
 Response (200):
 {
   "success": true,
-  "message": "OTP sent successfully",
-  "identifier": "9876543210",
+  "message": "OTP sent to your email and phone",
+  "identifier": "ramesh@store.com",
   "otpExpiresIn": 600 // seconds
 }
 ```

@@ -10,6 +10,15 @@ const { ROLES } = require('../config/constants');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { normalizePhoneNumber } = require('../utils/phoneValidation');
 
+const normalizeEmail = (email) => (email ? email.toLowerCase().trim() : null);
+
+const getOtpDeliveryMessage = (email, phone) => {
+  if (email && phone) return 'OTP sent to your email and phone';
+  if (email) return 'OTP sent to your email';
+  if (phone) return 'OTP sent to your phone';
+  return 'OTP sent successfully';
+};
+
 // =====================================================
 // ADMIN AUTHENTICATION
 // =====================================================
@@ -79,18 +88,20 @@ exports.adminLogin = asyncHandler(async (req, res) => {
  * @access  Public
  */
 exports.shopOwnerRegister = asyncHandler(async (req, res) => {
-  const { shopName, ownerName, address, phone, email, password, otpMethod } = req.body;
+  const { shopName, ownerName, address, phone, email, password } = req.body;
 
   // Normalize phone number to ensure consistent format (+919XXXXXXXXX)
   const normalizedPhone = phone ? normalizePhoneNumber(phone) : null;
+  const normalizedEmail = normalizeEmail(email);
 
   // Check if phone or email already exists
   const existingUser = await prisma.user.findFirst({
     where: {
       OR: [
         { phone: normalizedPhone },
-        { email },
+        { email: normalizedEmail },
         { phone: phone }, // Also check original format
+        { email },
       ],
     },
   });
@@ -102,20 +113,29 @@ exports.shopOwnerRegister = asyncHandler(async (req, res) => {
     });
   }
 
-  // Store registration data temporarily in session or use identifier
-  const identifier = otpMethod === 'sms' ? normalizedPhone : email;
+  const identifier = normalizedEmail || normalizedPhone;
+  const otpTargets = {
+    email: normalizedEmail,
+    phone: normalizedPhone,
+  };
 
   // Send OTP
-  await sendOTP(identifier, 'REGISTRATION', otpMethod);
+  await sendOTP(otpTargets, 'REGISTRATION');
 
   // Store registration data in a temporary collection or cache
   // For simplicity, we'll send it back to frontend to send with OTP verification
   res.json({
     success: true,
-    message: 'OTP sent successfully',
+    message: getOtpDeliveryMessage(otpTargets.email, otpTargets.phone),
     identifier,
-    otpMethod,
-    registrationData: { shopName, ownerName, address, phone: normalizedPhone, email, password },
+    registrationData: {
+      shopName,
+      ownerName,
+      address,
+      phone: normalizedPhone,
+      email: normalizedEmail,
+      password,
+    },
     otpExpiresIn: 600, // 10 minutes
   });
 });
@@ -139,9 +159,10 @@ exports.shopOwnerVerifyOTP = asyncHandler(async (req, res) => {
 
   // Normalize phone number to ensure consistent format
   const normalizedPhone = phone ? normalizePhoneNumber(phone) : null;
+  const normalizedEmail = normalizeEmail(email);
 
   // Verify OTP
-  await verifyOTP(identifier, otp);
+  await verifyOTP([identifier, normalizedEmail, normalizedPhone], otp);
 
   // Hash password if provided
   let passwordHash = null;
@@ -152,7 +173,7 @@ exports.shopOwnerVerifyOTP = asyncHandler(async (req, res) => {
   // Create user, shop, and shop owner
   const user = await prisma.user.create({
     data: {
-      email,
+      email: normalizedEmail,
       phone: normalizedPhone,
       role: ROLES.SHOP_OWNER,
     },
@@ -247,19 +268,18 @@ exports.shopOwnerLogin = asyncHandler(async (req, res) => {
     });
   }
 
-  // Determine OTP method
-  const otpMethod = identifier.includes('@') ? 'email' : 'sms';
-
-  // Use the actual phone/email from database for sending OTP
-  const actualIdentifier = otpMethod === 'email' ? user.email : user.phone;
+  const otpTargets = {
+    email: normalizeEmail(user.email),
+    phone: user.phone ? normalizePhoneNumber(user.phone) : null,
+  };
 
   // Send OTP
-  await sendOTP(actualIdentifier, 'LOGIN', otpMethod);
+  await sendOTP(otpTargets, 'LOGIN');
 
   res.json({
     success: true,
-    message: 'OTP sent successfully',
-    identifier: actualIdentifier,
+    message: getOtpDeliveryMessage(otpTargets.email, otpTargets.phone),
+    identifier: normalizedIdentifier,
     shopName: user.shopOwner.shop.shopName,
     otpExpiresIn: 600,
   });
@@ -277,9 +297,6 @@ exports.shopOwnerVerifyLoginOTP = asyncHandler(async (req, res) => {
   const normalizedIdentifier = identifier.includes('@')
     ? identifier.toLowerCase().trim()
     : normalizePhoneNumber(identifier);
-
-  // Verify OTP
-  await verifyOTP(normalizedIdentifier, otp);
 
   // Find shop owner
   const user = await prisma.user.findFirst({
@@ -307,6 +324,15 @@ exports.shopOwnerVerifyLoginOTP = asyncHandler(async (req, res) => {
       message: 'User not found',
     });
   }
+
+  const verificationIdentifiers = [
+    normalizedIdentifier,
+    normalizeEmail(user.email),
+    user.phone ? normalizePhoneNumber(user.phone) : null,
+  ];
+
+  // Verify OTP (accept code sent to email or phone)
+  await verifyOTP(verificationIdentifiers, otp);
 
   // Update last login
   await prisma.user.update({
@@ -501,19 +527,18 @@ exports.customerLogin = asyncHandler(async (req, res) => {
     });
   }
 
-  // Determine OTP method
-  const otpMethod = identifier.includes('@') ? 'email' : 'sms';
-
-  // Use the actual phone/email from database for sending OTP
-  const actualIdentifier = otpMethod === 'email' ? user.email : user.phone;
+  const otpTargets = {
+    email: normalizeEmail(user.email),
+    phone: user.phone ? normalizePhoneNumber(user.phone) : null,
+  };
 
   // Send OTP
-  await sendOTP(actualIdentifier, 'LOGIN', otpMethod);
+  await sendOTP(otpTargets, 'LOGIN');
 
   res.json({
     success: true,
-    message: 'OTP sent successfully',
-    identifier: actualIdentifier,
+    message: getOtpDeliveryMessage(otpTargets.email, otpTargets.phone),
+    identifier: normalizedIdentifier,
     shopName: user.customer.shop.shopName,
     otpExpiresIn: 600,
   });
@@ -531,9 +556,6 @@ exports.customerVerifyOTP = asyncHandler(async (req, res) => {
   const normalizedIdentifier = identifier.includes('@')
     ? identifier.toLowerCase().trim()
     : normalizePhoneNumber(identifier);
-
-  // Verify OTP
-  await verifyOTP(normalizedIdentifier, otp);
 
   // Find customer - try both original and normalized
   const user = await prisma.user.findFirst({
@@ -561,6 +583,15 @@ exports.customerVerifyOTP = asyncHandler(async (req, res) => {
       message: 'User not found',
     });
   }
+
+  const verificationIdentifiers = [
+    normalizedIdentifier,
+    normalizeEmail(user.email),
+    user.phone ? normalizePhoneNumber(user.phone) : null,
+  ];
+
+  // Verify OTP (accept code sent to email or phone)
+  await verifyOTP(verificationIdentifiers, otp);
 
   // Validate that customer has a shop association
   if (!user.customer || !user.customer.shopId) {
@@ -844,15 +875,17 @@ exports.requestPasswordReset = asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, message: 'Account not found or invalid role' });
   }
 
-  const otpMethod = identifier.includes('@') ? 'email' : 'sms';
-  const actualIdentifier = otpMethod === 'email' ? user.email : user.phone;
+  const otpTargets = {
+    email: normalizeEmail(user.email),
+    phone: user.phone ? normalizePhoneNumber(user.phone) : null,
+  };
 
-  await sendOTP(actualIdentifier, 'RESET_PASSWORD', otpMethod);
+  await sendOTP(otpTargets, 'RESET_PASSWORD');
 
   res.json({
     success: true,
-    message: 'Password reset OTP sent',
-    identifier: actualIdentifier
+    message: getOtpDeliveryMessage(otpTargets.email, otpTargets.phone),
+    identifier: normalizedIdentifier
   });
 });
 
@@ -867,8 +900,6 @@ exports.resetPassword = asyncHandler(async (req, res) => {
   const normalizedIdentifier = identifier.includes('@')
     ? identifier.toLowerCase().trim()
     : normalizePhoneNumber(identifier);
-
-  await verifyOTP(normalizedIdentifier, otp);
 
   const user = await prisma.user.findFirst({
     where: {
@@ -885,6 +916,15 @@ exports.resetPassword = asyncHandler(async (req, res) => {
   if (!user) {
     return res.status(404).json({ success: false, message: 'Account not found' });
   }
+
+  const verificationIdentifiers = [
+    normalizedIdentifier,
+    normalizeEmail(user.email),
+    user.phone ? normalizePhoneNumber(user.phone) : null,
+  ];
+
+  // Verify OTP (accept code sent to email or phone)
+  await verifyOTP(verificationIdentifiers, otp);
 
   const newHash = await bcrypt.hash(newPassword, 12);
 

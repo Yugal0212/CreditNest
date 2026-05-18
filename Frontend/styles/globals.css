@@ -274,3 +274,28 @@
     --tw-blur: blur(56px) !important;
   }
 }
+
+/* Google Translate Widget Overrides */
+.goog-te-banner-frame.skiptranslate,
+.goog-te-banner-frame,
+.goog-te-balloon-frame,
+#goog-gt-tt,
+.goog-te-balloon-frame.skiptranslate,
+.goog-tooltip,
+.goog-tooltip:hover,
+.VIpgJd-ZVi9od-xl07Ob-OipS9b,
+.VIpgJd-ZVi9od-ORhb-nSuMve,
+.VIpgJd-ZVi9od-v066Fe,
+.VIpgJd-ZVi9od-sm0ne-vSuMve {
+  display: none !important;
+}
+
+body {
+  top: 0px !important;
+}
+
+/* Hide Google Translate icon/logo in page */
+img[src*="google_translate"],
+.goog-te-gadget-icon {
+  display: none !important;
+}

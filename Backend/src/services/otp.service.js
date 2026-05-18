@@ -5,19 +5,51 @@ const { sendOTPSMS } = require('./sms.service');
 const logger = require('../utils/logger');
 const { OTP } = require('../config/constants');
 
+const buildOtpTargets = (identifierOrTargets, method) => {
+  if (typeof identifierOrTargets === 'string') {
+    return [{ identifier: identifierOrTargets, method }];
+  }
+
+  if (!identifierOrTargets || typeof identifierOrTargets !== 'object') {
+    return [];
+  }
+
+  const targets = [];
+  if (identifierOrTargets.email) {
+    targets.push({ identifier: identifierOrTargets.email, method: 'email' });
+  }
+  if (identifierOrTargets.phone) {
+    targets.push({ identifier: identifierOrTargets.phone, method: 'sms' });
+  }
+
+  return targets;
+};
+
+const getOtpEmailType = (type) => {
+  if (type === 'REGISTRATION') return 'registration';
+  if (type === 'RESET_PASSWORD') return 'password reset';
+  return 'login';
+};
+
 /**
  * Generate and send OTP
  */
-const sendOTP = async (identifier, type, method = 'email') => {
+const sendOTP = async (identifierOrTargets, type, method = 'email') => {
   try {
     // Development mode - shorter wait time between requests
     const isDevelopment = process.env.NODE_ENV === 'development';
+    const targets = buildOtpTargets(identifierOrTargets, method);
+    const uniqueIdentifiers = [...new Set(targets.map((target) => target.identifier))];
+
+    if (uniqueIdentifiers.length === 0) {
+      throw new Error('No valid OTP destination found');
+    }
     
     // Check if recently sent OTP exists (shorter window in development)
     const recentWindow = isDevelopment ? 30 * 1000 : 60 * 1000; // 30 seconds in dev, 1 minute in prod
     const recentOTP = await prisma.oTPVerification.findFirst({
       where: {
-        identifier,
+        identifier: { in: uniqueIdentifiers },
         createdAt: {
           gte: new Date(Date.now() - recentWindow),
         },
@@ -32,44 +64,59 @@ const sendOTP = async (identifier, type, method = 'email') => {
     const otp = generateOTP();
     const expiresAt = new Date(Date.now() + OTP.EXPIRY_MINUTES * 60 * 1000);
 
-    // Delete old OTPs for this identifier
+    // Delete old OTPs for these identifiers
     await prisma.oTPVerification.deleteMany({
-      where: { identifier },
+      where: { identifier: { in: uniqueIdentifiers } },
     });
 
-    // Store OTP in database
-    await prisma.oTPVerification.create({
-      data: {
-        identifier,
-        otp,
-        otpType: type,
-        expiresAt,
-      },
-    });
+    // Store OTP in database for each destination
+    await Promise.all(
+      uniqueIdentifiers.map((identifier) =>
+        prisma.oTPVerification.create({
+          data: {
+            identifier,
+            otp,
+            otpType: type,
+            expiresAt,
+          },
+        })
+      )
+    );
 
-    // Send OTP based on method
+    // Send OTP based on method(s)
     // In development, we allow the request to succeed even if external providers fail,
     // because the OTP is already stored in DB and printed to console below.
-    if (method === 'email') {
-      try {
-        await sendOTPEmail(identifier, otp, type === 'REGISTRATION' ? 'registration' : 'login');
-      } catch (sendError) {
-        if (!isDevelopment) throw sendError;
-        logger.warn('OTP email sending failed in development; continuing with console OTP.', {
-          identifier,
-          error: String(sendError?.message || sendError),
-        });
+    const sendResults = await Promise.allSettled(
+      targets.map(async (target) => {
+        if (target.method === 'email') {
+          await sendOTPEmail(target.identifier, otp, getOtpEmailType(type));
+          return { method: 'email', identifier: target.identifier };
+        }
+
+        if (target.method === 'sms') {
+          await sendOTPSMS(target.identifier, otp);
+          return { method: 'sms', identifier: target.identifier };
+        }
+
+        return null;
+      })
+    );
+
+    const failures = sendResults.filter((result) => result.status === 'rejected');
+    const successes = sendResults.length - failures.length;
+
+    if (failures.length > 0) {
+      const failedMessages = failures.map((failure) => String(failure.reason?.message || failure.reason));
+      const logPayload = {
+        identifiers: uniqueIdentifiers,
+        errors: failedMessages,
+      };
+
+      if (!isDevelopment && successes === 0) {
+        throw new Error(failedMessages[0] || 'Failed to send OTP');
       }
-    } else if (method === 'sms') {
-      try {
-        await sendOTPSMS(identifier, otp);
-      } catch (sendError) {
-        if (!isDevelopment) throw sendError;
-        logger.warn('OTP SMS sending failed in development; continuing with console OTP.', {
-          identifier,
-          error: String(sendError?.message || sendError),
-        });
-      }
+
+      logger.warn('OTP delivery had partial failures.', logPayload);
     }
 
     // Log OTP prominently in development mode
@@ -77,14 +124,16 @@ const sendOTP = async (identifier, type, method = 'email') => {
       console.log('\n' + '='.repeat(70));
       console.log('🔐 OTP GENERATED (DEVELOPMENT MODE)');
       console.log('='.repeat(70));
-      console.log(`📱 Phone/Email: ${identifier}`);
+      console.log(`📱 Phone/Email: ${uniqueIdentifiers.join(', ')}`);
       console.log(`🔢 OTP Code: ${otp}`);
       console.log(`⏰ Expires in: ${OTP.EXPIRY_MINUTES} minutes`);
       console.log(`📝 Type: ${type}`);
       console.log('='.repeat(70) + '\n');
     }
 
-    logger.info(`OTP sent to ${identifier} via ${method}`);
+    const methodsUsed = [...new Set(targets.map((target) => target.method))];
+    const methodLabel = methodsUsed.length > 1 ? methodsUsed.join('+') : methodsUsed[0];
+    logger.info(`OTP sent to ${uniqueIdentifiers.join(', ')} via ${methodLabel}`);
 
     return {
       success: true,
@@ -97,15 +146,27 @@ const sendOTP = async (identifier, type, method = 'email') => {
   }
 };
 
+const normalizeIdentifiers = (identifierOrIdentifiers) => {
+  if (Array.isArray(identifierOrIdentifiers)) {
+    return [...new Set(identifierOrIdentifiers.filter(Boolean))];
+  }
+  return identifierOrIdentifiers ? [identifierOrIdentifiers] : [];
+};
+
 /**
  * Verify OTP
  */
-const verifyOTP = async (identifier, otp) => {
+const verifyOTP = async (identifierOrIdentifiers, otp) => {
   try {
+    const identifiers = normalizeIdentifiers(identifierOrIdentifiers);
+    if (identifiers.length === 0) {
+      throw new Error('Identifier is required for OTP verification');
+    }
+
     // Find OTP record
     const otpRecord = await prisma.oTPVerification.findFirst({
       where: {
-        identifier,
+        identifier: { in: identifiers },
         isVerified: false,
       },
       orderBy: {
@@ -119,36 +180,32 @@ const verifyOTP = async (identifier, otp) => {
 
     // Check if expired
     if (new Date() > otpRecord.expiresAt) {
-      await prisma.oTPVerification.delete({ where: { id: otpRecord.id } });
+      await prisma.oTPVerification.deleteMany({ where: { identifier: { in: identifiers } } });
       throw new Error('OTP has expired. Please request a new one.');
     }
 
     // Check attempts
     if (otpRecord.attempts >= OTP.MAX_ATTEMPTS) {
-      await prisma.oTPVerification.delete({ where: { id: otpRecord.id } });
+      await prisma.oTPVerification.deleteMany({ where: { identifier: { in: identifiers } } });
       throw new Error('Maximum OTP attempts exceeded. Please request a new OTP.');
     }
 
     // Verify OTP
     if (otpRecord.otp !== otp) {
-      // Increment attempts
-      await prisma.oTPVerification.update({
-        where: { id: otpRecord.id },
+      await prisma.oTPVerification.updateMany({
+        where: {
+          identifier: { in: identifiers },
+          otp: otpRecord.otp,
+        },
         data: { attempts: otpRecord.attempts + 1 },
       });
       throw new Error('Invalid OTP. Please try again.');
     }
 
-    // Mark as verified
-    await prisma.oTPVerification.update({
-      where: { id: otpRecord.id },
-      data: { isVerified: true },
-    });
+    // Delete OTP records after successful verification
+    await prisma.oTPVerification.deleteMany({ where: { identifier: { in: identifiers } } });
 
-    // Delete the OTP record after successful verification
-    await prisma.oTPVerification.delete({ where: { id: otpRecord.id } });
-
-    logger.info(`OTP verified for ${identifier}`);
+    logger.info(`OTP verified for ${identifiers.join(', ')}`);
 
     return { success: true, message: 'OTP verified successfully' };
   } catch (error) {

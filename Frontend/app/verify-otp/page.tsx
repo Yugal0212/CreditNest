@@ -143,7 +143,7 @@ export default function VerifyOTPPage() {
       setTimeLeft(600); // Reset timer
       setOtp(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
-      toast({ title: 'OTP Sent', description: 'A new OTP has been sent to your device' });
+      toast({ title: 'OTP Sent', description: 'A new OTP has been sent to your registered email/phone' });
     } catch (err: any) {
       toast({ 
         title: 'Error', 
@@ -259,7 +259,10 @@ export default function VerifyOTPPage() {
             <div className="mb-6">
               <h2 className="text-2xl font-black text-foreground mb-1">Verify OTP</h2>
               <p className="text-sm text-muted-foreground">
-                Enter the 6-digit code sent to <strong className="text-foreground">{pendingData.identifier}</strong>
+                Enter the 6-digit code sent to your registered email or phone.
+                {pendingData?.identifier ? (
+                  <span className="text-muted-foreground"> ({pendingData.identifier})</span>
+                ) : null}
               </p>
             </div>
 

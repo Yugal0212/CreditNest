@@ -213,10 +213,10 @@ Content-Type: application/json
   "ownerName": "John Doe",
   "address": "123 Main St",
   "phone": "9876543210",
-  "email": "shop@example.com",
-  "otpMethod": "email"
+  "email": "shop@example.com"
 }
 ```
+OTP is sent to both the registered email and phone.
 
 #### Verify OTP
 ```http

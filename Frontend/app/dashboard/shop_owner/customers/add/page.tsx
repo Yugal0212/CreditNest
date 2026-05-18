@@ -67,6 +67,17 @@ export default function AddCustomer() {
         return;
       }
 
+      // Validate email if provided
+      if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        toast({
+          title: 'Validation Error',
+          description: 'Please enter a valid email address',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+
       const data = new FormData();
       data.append('name', formData.name);
       data.append('phone', formData.phone);

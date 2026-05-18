@@ -58,3 +58,7 @@ $RECYCLE.BIN/
 __v0_runtime_loader.js
 __v0_devtools.tsx
 __v0_jsx-dev-runtime.ts
+
+# PWA
+/public/sw.js
+/public/workbox-*.js

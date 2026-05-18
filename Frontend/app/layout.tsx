@@ -9,6 +9,9 @@ import './globals.css'
 import '@/styles/google-translate.css'
 import { link } from 'fs'
 
+import PWAInstallBanner  from '@/components/PWAInstallBanner';
+import OfflineIndicator  from '@/components/OfflineIndicator';
+
 const _geist = Geist({ subsets: ['latin'] })
 const _geistMono = Geist_Mono({ subsets: ['latin'] })
 
@@ -24,10 +27,18 @@ export const metadata: Metadata = {
     ],
     apple: '/apple-icon.png',
   },
+  manifest: '/manifest.json',
+  themeColor: '#1A5276',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'SCMS',
+    title: 'Smart Credit',
+    startupImage: '/icons/icon-512x512.png',
+  },
+  other: {
+    'msapplication-TileColor':  '#0D2235',
+    'msapplication-TileImage':  '/icons/icon-144x144.png',
+    'mobile-web-app-capable':   'yes',
   },
 }
 
@@ -46,8 +57,12 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="SCMS" />
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        <link rel="shortcut icon" href="/icons/icon-96x96.png" />
+        <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
       </head>
       <body className="font-sans antialiased bg-background text-foreground transition-colors duration-300">
+        <OfflineIndicator />
         <ThemeProvider>
           <AuthProvider>
             <NotificationProvider>
@@ -58,6 +73,7 @@ export default function RootLayout({
             </NotificationProvider>
           </AuthProvider>
         </ThemeProvider>
+        <PWAInstallBanner />
       </body>
     </html>
   )

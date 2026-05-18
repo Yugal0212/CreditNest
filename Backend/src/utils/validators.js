@@ -21,7 +21,10 @@ const authValidation = {
       .withMessage('Password must be at least 6 characters')
       .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
       .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
-    body('otpMethod').isIn(['sms', 'email']).withMessage('OTP method must be sms or email'),
+    body('otpMethod')
+      .optional()
+      .isIn(['sms', 'email', 'both'])
+      .withMessage('OTP method must be sms, email, or both'),
   ],
 
   passwordLogin: [

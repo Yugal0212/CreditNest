@@ -20,7 +20,9 @@ const app = express();
 // =====================================================
 
 // Security headers
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 
 const normalizeOrigin = (origin) => origin?.replace(/\/$/, '');
 
@@ -63,6 +65,10 @@ app.use(
 // Body parser
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Serve static files (fallback for local uploads)
+const path = require('path');
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Rate limiting (apply to all routes)
 app.use('/api/', apiLimiter);
