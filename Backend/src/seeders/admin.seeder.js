@@ -20,31 +20,55 @@ const seedAdmin = async () => {
       },
     });
 
-    if (existingAdmin) {
-      logger.info('✅ Admin user already exists');
-      return;
-    }
+    if (!existingAdmin) {
+      // Hash password
+      const passwordHash = await bcrypt.hash('Admin@123', 12);
 
-    // Hash password
-    const passwordHash = await bcrypt.hash('Admin@123', 12);
-
-    // Create admin user
-    const adminUser = await prisma.user.create({
-      data: {
-        email: 'admin@scms.com',
-        role: 'ADMIN',
-        admin: {
-          create: {
-            name: 'System Administrator',
-            passwordHash,
-            avatarUrl: 'https://ui-avatars.com/api/?name=Admin&size=500&background=667eea&color=fff',
+      // Create admin user
+      await prisma.user.create({
+        data: {
+          email: 'admin@scms.com',
+          role: 'ADMIN',
+          admin: {
+            create: {
+              name: 'System Administrator',
+              passwordHash,
+              avatarUrl: 'https://ui-avatars.com/api/?name=Admin&size=500&background=667eea&color=fff',
+            },
           },
         },
-      },
-      include: {
-        admin: true,
+      });
+      logger.info('✅ Default Admin user created successfully');
+    }
+
+    // Check if user's admin already exists
+    const existingUserAdmin = await prisma.user.findFirst({
+      where: {
+        email: 'jakasaniyayugal@gmail.com',
+        role: 'ADMIN',
       },
     });
+
+    if (!existingUserAdmin) {
+      // Hash password
+      const userPasswordHash = await bcrypt.hash('Yugal@0212', 12);
+
+      // Create user admin
+      await prisma.user.create({
+        data: {
+          email: 'jakasaniyayugal@gmail.com',
+          role: 'ADMIN',
+          admin: {
+            create: {
+              name: 'Yugal Admin',
+              passwordHash: userPasswordHash,
+              avatarUrl: 'https://ui-avatars.com/api/?name=Yugal&size=500&background=D4A017&color=fff',
+            },
+          },
+        },
+      });
+      logger.info('✅ User Admin created successfully');
+    }
 
     logger.info('✅ Admin user created successfully');
     logger.info('📧 Email: admin@scms.com');

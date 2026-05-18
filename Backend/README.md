@@ -458,3 +458,26 @@ Backend is now ready! Start the frontend and test the complete system.
 
 **API is running at:** `http://localhost:5000`
 **Health Check:** `http://localhost:5000/api/health`
+
+
+## 🚀 Deploying to Render
+
+To deploy this backend to Render for free:
+
+1. Create a free account on [Render](https://render.com).
+2. Click **New +** and select **Web Service**.
+3. Connect your GitHub repository.
+4. Set the following settings:
+   - **Name**: `smart-credit-backend`
+   - **Language**: `Node`
+   - **Branch**: `main` (or your branch)
+   - **Build Command**: `npm install && npm run prisma:generate`
+   - **Start Command**: `npm start`
+5. Add the following **Environment Variables** in Render:
+   - `NODE_ENV`: `production`
+   - `DATABASE_URL`: Your MongoDB Atlas connection string (Must not be localhost!)
+   - `JWT_SECRET`: A secure random string
+   - `FRONTEND_URL`: `https://credit-nest.vercel.app`
+6. Click **Deploy Web Service**!
+
+Render will automatically provide an `https://` URL for your backend!
