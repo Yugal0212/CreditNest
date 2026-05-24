@@ -47,13 +47,11 @@ const authLimiter = rateLimit({
  * More lenient in development for testing
  */
 const otpLimiter = rateLimit({
-  windowMs: isDevelopment ? 5 * 60 * 1000 : 60 * 60 * 1000, // 5 mins in dev, 1 hour in prod
-  max: isDevelopment ? 20 : 5, // 20 in dev, 5 in prod
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3,
   message: {
     success: false,
-    message: isDevelopment
-      ? 'Too many OTP requests. Please try again after 5 minutes.'
-      : 'Too many OTP requests. Please try again after 1 hour.',
+    message: 'Too many OTP requests. Please try again after 1 hour.',
   },
   standardHeaders: true,
   legacyHeaders: false,

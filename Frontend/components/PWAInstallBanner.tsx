@@ -52,11 +52,13 @@ export default function PWAInstallBanner() {
     <div className="fixed bottom-0 left-0 right-0 z-[9999] bg-white border-t border-[#E5E7EB] rounded-t-[20px] px-5 pt-5 pb-8 shadow-[0_-6px_40px_rgba(13,34,53,0.14)]">
       {/* LOGO ROW */}
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-12 h-12 bg-[#0D2235] rounded-[14px] flex items-center justify-center flex-shrink-0">
-          <Zap className="h-6 w-6 text-[#D4A017]" />
-        </div>
+        <img 
+          src="/CreditNest.png" 
+          alt="CreditNest Logo" 
+          className="w-12 h-12 object-contain"
+        />
         <div className="text-left">
-          <p className="text-[#0D2235] font-black text-[14px]">Smart Credit SCMS</p>
+          <p className="text-[#0D2235] font-black text-[14px]">CreditNest</p>
           <p className="text-[#6B7280] text-[12px]">Free · Works Offline</p>
         </div>
         <button 
@@ -115,10 +117,12 @@ export default function PWAInstallBanner() {
             
             {/* Step 3 */}
             <div className="flex-1 flex flex-col items-center gap-2">
-              <div className="w-9 h-9 bg-[#0D2235]/10 rounded-full flex items-center justify-center">
-                <Zap className="h-4 w-4 text-[#D4A017]" />
-              </div>
-              <span className="text-[11px] text-[#6B7280] font-semibold text-center">Open SCMS</span>
+              <img 
+                src="/CreditNest.png" 
+                alt="CreditNest Logo" 
+                className="w-9 h-9 object-contain"
+              />
+              <span className="text-[11px] text-[#6B7280] font-semibold text-center">Open CreditNest</span>
             </div>
           </div>
           

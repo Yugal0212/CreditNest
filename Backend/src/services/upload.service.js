@@ -1,98 +1,93 @@
-const cloudinary = require('../config/cloudinary');
+const fs = require('fs');
+const path = require('path');
 const logger = require('../utils/logger');
 
 /**
- * Upload file buffer to Cloudinary
+ * Handle file url generation for Multer diskStorage
+ * Compatible with existing controller signatures.
+ * If fileObject is already written to disk by Multer, we construct the static path URL.
+ * If it is a buffer, we write it to the local folder.
  */
-const uploadToCloudinary = (buffer, folder, fileName) => {
-  return new Promise((resolve, reject) => {
-    // Check if Cloudinary is configured (Forced to local storage to avoid errors)
-    if (true || !process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-      logger.info('Cloudinary not configured. Falling back to local storage.');
-      
-      const fs = require('fs');
-      const path = require('path');
-      
-      // Normalize folder path for Windows
-      const normalizedFolder = folder.replace(/\//g, path.sep);
-      const uploadDir = path.join(__dirname, '../../uploads', normalizedFolder);
-      
-      logger.info(`Target upload directory: ${uploadDir}`);
-      
-      try {
-        if (!fs.existsSync(uploadDir)) {
-          logger.info('Creating upload directory...');
-          fs.mkdirSync(uploadDir, { recursive: true });
-          logger.info('Upload directory created.');
-        }
-        
-        const filePath = path.join(uploadDir, `${fileName}.jpg`);
-        logger.info(`Writing file to: ${filePath}`);
-        fs.writeFileSync(filePath, buffer);
-        logger.info('File written successfully.');
-        
-        logger.info(`File saved locally: ${filePath}`);
-        
-        const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
-        return resolve({
-          secure_url: `${baseUrl}/uploads/${folder}/${fileName}.jpg`
-        });
-      } catch (err) {
-        logger.error('Local upload error:', err);
-        return reject(err);
-      }
+const uploadToCloudinary = async (fileObject, folder, fileName) => {
+  const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+
+  // 1. If fileObject is already a saved Multer disk file
+  if (fileObject && fileObject.filename) {
+    const subfolder = path.basename(fileObject.destination);
+    logger.info(`Processing already saved disk upload: ${fileObject.filename} under ${subfolder}`);
+    return {
+      secure_url: `${baseUrl}/uploads/${subfolder}/${fileObject.filename}`
+    };
+  }
+
+  // 2. Fallback: If it's a raw buffer, write it manually to the disk
+  if (fileObject && Buffer.isBuffer(fileObject)) {
+    logger.info(`Received raw buffer upload for folder ${folder}`);
+    
+    // Normalize folder name (remove scms prefix if any)
+    let subfolder = 'users';
+    if (folder.includes('product')) {
+      subfolder = 'products';
+    } else if (folder.includes('category')) {
+      subfolder = 'categories';
     }
 
-    const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        folder: folder,
-        public_id: fileName,
-        transformation: [{ width: 500, height: 500, crop: 'limit' }, { quality: 'auto' }],
-        resource_type: 'image',
-      },
-      (error, result) => {
-        if (error) {
-          logger.error('Cloudinary upload error:', error);
-          return reject(error);
-        }
-        logger.info(`File uploaded to Cloudinary: ${result.secure_url}`);
-        resolve(result);
+    const uploadDir = path.join(__dirname, '../../uploads', subfolder);
+    
+    try {
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
       }
-    );
+      
+      const ext = '.jpg'; // default extension for manual buffers
+      const savedFileName = `${fileName}${ext}`;
+      const filePath = path.join(uploadDir, savedFileName);
+      
+      fs.writeFileSync(filePath, fileObject);
+      logger.info(`File successfully written to disk: ${filePath}`);
+      
+      return {
+        secure_url: `${baseUrl}/uploads/${subfolder}/${savedFileName}`
+      };
+    } catch (err) {
+      logger.error('Error writing manual buffer to disk:', err);
+      throw err;
+    }
+  }
 
-    // Create a readable stream from buffer
-    const Readable = require('stream').Readable;
-    const stream = new Readable();
-    stream.push(buffer);
-    stream.push(null);
-    stream.pipe(uploadStream);
-  });
+  throw new Error('Invalid file object or buffer provided for upload.');
 };
 
 /**
- * Delete file from Cloudinary
+ * Delete local file based on its URL
  */
-const deleteFromCloudinary = async (publicId) => {
+const deleteFromCloudinary = async (fileUrl) => {
+  if (!fileUrl) return;
+  
   try {
-    const result = await cloudinary.uploader.destroy(publicId);
-    logger.info(`File deleted from Cloudinary: ${publicId}`);
-    return result;
+    const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    if (fileUrl.startsWith(baseUrl)) {
+      const relativePath = fileUrl.replace(baseUrl, ''); // e.g. /uploads/products/photo-123.jpg
+      const filePath = path.join(__dirname, '../../', relativePath);
+      
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        logger.info(`Successfully deleted local file: ${filePath}`);
+      }
+    }
   } catch (error) {
-    logger.error('Cloudinary delete error:', error);
-    throw error;
+    logger.error('Failed to delete local file:', error);
   }
 };
 
 /**
- * Get public ID from Cloudinary URL
+ * Extract relative filename/path from URL
  */
 const getPublicIdFromUrl = (url) => {
   try {
     const parts = url.split('/');
     const lastPart = parts[parts.length - 1];
-    const publicId = lastPart.split('.')[0];
-    const folder = parts[parts.length - 2];
-    return `${folder}/${publicId}`;
+    return lastPart;
   } catch (error) {
     return null;
   }

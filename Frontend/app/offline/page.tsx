@@ -1,86 +1,47 @@
 'use client';
 
-import { WifiOff, Zap, RefreshCw, LayoutDashboard, LogIn } from 'lucide-react';
+import { WifiOff, RefreshCw } from 'lucide-react';
+import { motion } from 'framer-motion';
 
-export default function OfflinePage() {
+export default function OfflineFallback() {
+  const handleRetry = () => {
+    window.location.reload();
+  };
+
   return (
-    <div className="min-h-screen bg-[#0D2235] flex flex-col items-center justify-center px-6 text-center relative overflow-hidden">
-      {/* Dot-grid texture overlay */}
-      <div 
-        className="absolute inset-0 pointer-events-none opacity-15" 
-        style={{
-          backgroundImage: 'radial-gradient(circle, #5DADE2 1px, transparent 1px)',
-          backgroundSize: '28px 28px'
-        }}
-      />
-      
-      {/* Content container */}
-      <div className="relative z-10 flex flex-col items-center gap-6 max-w-sm w-full">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3 }}
+        className="max-w-md w-full text-center space-y-6"
+      >
+        <div className="mx-auto w-24 h-24 bg-rose-500/10 rounded-full flex items-center justify-center mb-6">
+          <WifiOff className="w-12 h-12 text-rose-500" />
+        </div>
         
-        {/* TOP — Logo */}
-        <div className="flex row items-center gap-2.5 mb-2">
-          <div className="w-10 h-10 bg-[#D4A017]/10 border border-[#D4A017]/30 rounded-xl flex items-center justify-center">
-            <Zap className="h-5 w-5 text-[#D4A017]" />
-          </div>
-          <span className="text-white font-black text-base tracking-widest">SCMS</span>
-        </div>
-
-        {/* MAIN ICON */}
-        <div className="w-20 h-20 bg-[#1A5276]/40 rounded-full flex items-center justify-center border border-[#1A5276]">
-          <div className="w-14 h-14 bg-[#1A5276] rounded-full flex items-center justify-center">
-            <WifiOff className="h-7 w-7 text-[#D4A017]" />
-          </div>
-        </div>
-
-        {/* HEADING + SUBTEXT */}
-        <div className="space-y-2">
-          <h1 className="text-white text-2xl font-black tracking-tight">You're offline</h1>
-          <p className="text-white/55 text-sm leading-relaxed max-w-[260px] mx-auto">
-            Check your internet connection. Your recently visited pages are still available below.
-          </p>
-        </div>
-
-        {/* RETRY BUTTON */}
-        <button 
-          onClick={() => window.location.reload()}
-          className="flex items-center gap-2 bg-[#D4A017] text-white font-bold text-sm px-8 py-3.5 rounded-xl w-full max-w-[220px] justify-center hover:bg-[#C09214] transition-colors"
-        >
-          <RefreshCw className="h-4 w-4" />
-          <span>Try Again</span>
-        </button>
-
-        {/* CACHED PAGES SECTION */}
-        <div className="w-full mt-2">
-          <p className="text-[10.5px] font-black uppercase tracking-[.25em] text-white/30 mb-3">
-            Available offline
-          </p>
-          
-          <div className="grid grid-cols-2 gap-3 w-full">
-            {/* Card 1 — Dashboard */}
-            <a 
-              href="/dashboard" 
-              className="bg-[#1A5276]/20 border border-[#1A5276]/40 rounded-xl p-4 flex flex-col items-center gap-2 text-white/70 hover:bg-[#1A5276]/30 transition"
-            >
-              <LayoutDashboard className="h-5 w-5 text-[#D4A017]" />
-              <span className="text-xs font-semibold">Dashboard</span>
-            </a>
-            
-            {/* Card 2 — Login */}
-            <a 
-              href="/login" 
-              className="bg-[#1A5276]/20 border border-[#1A5276]/40 rounded-xl p-4 flex flex-col items-center gap-2 text-white/70 hover:bg-[#1A5276]/30 transition"
-            >
-              <LogIn className="h-5 w-5 text-[#D4A017]" />
-              <span className="text-xs font-semibold">Login</span>
-            </a>
-          </div>
-        </div>
-
-        {/* FOOTER */}
-        <p className="text-white/20 text-[11px] mt-4">
-          Smart Credit SCMS · Offline Mode
+        <h1 className="text-3xl font-black text-foreground tracking-tight">
+          You're Offline
+        </h1>
+        
+        <p className="text-muted-foreground text-lg">
+          It looks like you've lost your internet connection. This page isn't cached yet, so we can't show it right now.
         </p>
-      </div>
+
+        <div className="pt-8">
+          <button 
+            onClick={handleRetry}
+            className="flex items-center justify-center gap-2 w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl hover:bg-primary/90 transition-all active:scale-[0.98]"
+          >
+            <RefreshCw className="w-5 h-5" />
+            Try Again
+          </button>
+        </div>
+        
+        <p className="text-sm text-muted-foreground pt-4">
+          Don't worry, your background data and unsynced changes will automatically sync when you reconnect!
+        </p>
+      </motion.div>
     </div>
   );
 }

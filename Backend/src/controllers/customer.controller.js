@@ -1,6 +1,7 @@
 const prisma = require('../config/database');
 const generateAvatarUrl = require('../utils/generateAvatar');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { getLocalizedValue } = require('../utils/localization');
 
 // =====================================================
 // DASHBOARD
@@ -74,6 +75,7 @@ exports.getProducts = asyncHandler(async (req, res) => {
   const userId = req.user.userId;
   const shopId = req.user.shopId; // Get shopId from JWT token
   const { page = 1, limit = 20, search = '', category } = req.query;
+  const lang = req.lang || 'en';
 
   const skip = (parseInt(page) - 1) * parseInt(limit);
   const take = parseInt(limit);
@@ -118,12 +120,22 @@ exports.getProducts = asyncHandler(async (req, res) => {
     success: true,
     products: products.map((p) => ({
       id: p.id,
-      name: p.productName,
+      name: getLocalizedValue(lang, {
+        en: p.productNameEn,
+        hi: p.productNameHi,
+        gu: p.productNameGu,
+        fallback: p.productName,
+      }),
       unit: p.unit,
       pricePerUnit: p.pricePerUnit,
       photoUrl: p.photoUrl || generateAvatarUrl(p.productName),
       stockStatus: p.stockStatus,
-      category: p.category,
+      category: getLocalizedValue(lang, {
+        en: p.categoryEn,
+        hi: p.categoryHi,
+        gu: p.categoryGu,
+        fallback: p.category,
+      }),
       description: p.description,
     })),
     pagination: {
@@ -144,6 +156,7 @@ exports.getProductDetails = asyncHandler(async (req, res) => {
   const { productId } = req.params;
   const userId = req.user.userId;
   const shopId = req.user.shopId; // Get shopId from JWT token
+  const lang = req.lang || 'en';
 
   // Verify customer belongs to this shop
   const customer = await prisma.customer.findFirst({
@@ -181,12 +194,22 @@ exports.getProductDetails = asyncHandler(async (req, res) => {
     success: true,
     product: {
       id: product.id,
-      name: product.productName,
+      name: getLocalizedValue(lang, {
+        en: product.productNameEn,
+        hi: product.productNameHi,
+        gu: product.productNameGu,
+        fallback: product.productName,
+      }),
       unit: product.unit,
       pricePerUnit: product.pricePerUnit,
       photoUrl: product.photoUrl || generateAvatarUrl(product.productName),
       stockStatus: product.stockStatus,
-      category: product.category,
+      category: getLocalizedValue(lang, {
+        en: product.categoryEn,
+        hi: product.categoryHi,
+        gu: product.categoryGu,
+        fallback: product.category,
+      }),
       description: product.description,
     },
   });
@@ -205,6 +228,7 @@ exports.requestOrder = asyncHandler(async (req, res) => {
   const userId = req.user.userId;
   const shopId = req.user.shopId; // Get shopId from JWT token
   const { items, notes } = req.body;
+  const lang = req.lang || 'en';
 
   console.log('=== ORDER REQUEST DEBUG ===');
   console.log('User ID:', userId);
@@ -306,7 +330,12 @@ exports.requestOrder = asyncHandler(async (req, res) => {
       id: transaction.id,
       totalAmount: transaction.totalAmount,
       items: transaction.items.map((i) => ({
-        productName: i.product.productName,
+        productName: getLocalizedValue(lang, {
+          en: i.product.productNameEn,
+          hi: i.product.productNameHi,
+          gu: i.product.productNameGu,
+          fallback: i.product.productName,
+        }),
         quantity: i.quantity,
         unitPrice: i.unitPrice,
         subtotal: i.subtotal,
@@ -326,6 +355,7 @@ exports.getOrders = asyncHandler(async (req, res) => {
   const userId = req.user.userId;
   const shopId = req.user.shopId; // Get shopId from JWT token
   const { page = 1, limit = 20, startDate, endDate } = req.query;
+  const lang = req.lang || 'en';
 
   const skip = (parseInt(page) - 1) * parseInt(limit);
   const take = parseInt(limit);
@@ -381,7 +411,12 @@ exports.getOrders = asyncHandler(async (req, res) => {
       id: order.id,
       date: order.transactionDate,
       items: order.items.map((item) => ({
-        productName: item.product.productName,
+        productName: getLocalizedValue(lang, {
+          en: item.product.productNameEn,
+          hi: item.product.productNameHi,
+          gu: item.product.productNameGu,
+          fallback: item.product.productName,
+        }),
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         subtotal: item.subtotal,
@@ -410,6 +445,7 @@ exports.getOrderDetails = asyncHandler(async (req, res) => {
   const { orderId } = req.params;
   const userId = req.user.userId;
   const shopId = req.user.shopId; // Get shopId from JWT token
+  const lang = req.lang || 'en';
 
   // Verify customer belongs to this shop
   const customer = await prisma.customer.findFirst({
@@ -455,7 +491,12 @@ exports.getOrderDetails = asyncHandler(async (req, res) => {
       id: order.id,
       date: order.transactionDate,
       items: order.items.map((item) => ({
-        productName: item.product.productName,
+        productName: getLocalizedValue(lang, {
+          en: item.product.productNameEn,
+          hi: item.product.productNameHi,
+          gu: item.product.productNameGu,
+          fallback: item.product.productName,
+        }),
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         subtotal: item.subtotal,

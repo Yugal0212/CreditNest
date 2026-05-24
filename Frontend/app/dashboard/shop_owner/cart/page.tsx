@@ -12,10 +12,12 @@ import { useRouter } from 'next/navigation';
 import { shopOwnerAPI } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 type CartItem = { productId: string; quantity: number; unitPrice: number; name: string; unit: string };
 
 export default function ShopOwnerCart() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { user } = useAuth();
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -61,7 +63,7 @@ export default function ShopOwnerCart() {
       const res = await shopOwnerAPI.getCustomers({ page: 1, limit: 100 });
       setCustomers(res.data.customers || []);
     } catch (err) {
-      toast({ title: 'Error', description: 'Failed to load customers', variant: 'destructive' });
+      toast({ title: t('common.error', 'Error'), description: t('cart_page.error_load_customers', 'Failed to load customers'), variant: 'destructive' });
     } finally { 
       setCustomersLoading(false); 
     }
@@ -95,8 +97,8 @@ export default function ShopOwnerCart() {
         notes: notes || undefined,
       });
       toast({ 
-        title: '✅ Credit Added!', 
-        description: `₹${cartTotal.toFixed(2)} udhar created successfully` 
+        title: `✅ ${t('add_credit_page.success_title', 'Credit Added!')}`, 
+        description: t('cart_page.success_desc', '₹{{amount}} udhar created successfully', { amount: cartTotal.toFixed(2) }) 
       });
       
       // Clear cart
@@ -110,8 +112,8 @@ export default function ShopOwnerCart() {
       setTimeout(() => router.push(`/dashboard/shop_owner/customers/${targetCustomerId}/history?refresh=${Date.now()}`), 1200);
     } catch (error: any) {
       toast({ 
-        title: 'Error', 
-        description: error.response?.data?.message || 'Failed to record credit sale', 
+        title: t('common.error', 'Error'), 
+        description: error.response?.data?.message || t('cart_page.error_record', 'Failed to record credit sale'), 
         variant: 'destructive' 
       });
     } finally {
@@ -146,9 +148,9 @@ export default function ShopOwnerCart() {
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">Credit Cart</h1>
+                <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">{t('cart_page.title', 'Credit Cart')}</h1>
                 <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
-                  {cartItemCount} {cartItemCount === 1 ? 'item' : 'items'} • ₹{cartTotal.toFixed(2)}
+                  {t('cart_page.subtitle', '{{count}} {{itemsLabel}} • ₹{{total}}', { count: cartItemCount, itemsLabel: cartItemCount === 1 ? t('common.item', 'item') : t('common.items', 'items'), total: cartTotal.toFixed(2) })}
                 </p>
               </div>
             </div>
@@ -167,15 +169,15 @@ export default function ShopOwnerCart() {
               <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-muted/50 flex items-center justify-center">
                 <ShoppingCart className="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground" />
               </div>
-              <h2 className="text-xl sm:text-2xl font-black text-foreground">Cart is Empty</h2>
+              <h2 className="text-xl sm:text-2xl font-black text-foreground">{t('cart_page.empty_title', 'Cart is Empty')}</h2>
               <p className="text-sm sm:text-base text-muted-foreground max-w-sm px-4">
-                Add products from the products page to create a credit sale
+                {t('cart_page.empty_desc', 'Add products from the products page to create a credit sale')}
               </p>
               <button
                 onClick={() => router.push('/dashboard/shop_owner/products')}
                 className="mt-2 sm:mt-4 px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-primary to-indigo-500 text-white text-sm sm:text-base font-bold shadow-lg hover:shadow-xl transition-all"
               >
-                Browse Products
+                {t('cart_page.browse_products', 'Browse Products')}
               </button>
             </div>
           ) : (
@@ -184,7 +186,7 @@ export default function ShopOwnerCart() {
               {/* LEFT: Cart Items */}
               <div className="lg:col-span-2 space-y-3 sm:space-y-4">
                 <div className="glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all p-3 sm:p-6">
-                  <h2 className="text-lg sm:text-xl font-black text-foreground mb-3 sm:mb-4">Selected Items</h2>
+                  <h2 className="text-lg sm:text-xl font-black text-foreground mb-3 sm:mb-4">{t('cart_page.selected_items', 'Selected Items')}</h2>
                   <div className="space-y-2 sm:space-y-3">
                     
                       {cart.map(item => (
@@ -251,12 +253,12 @@ export default function ShopOwnerCart() {
                 <div className="glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all p-3 sm:p-6">
                   <div className="flex items-center gap-2 mb-3 sm:mb-4">
                     <Users className="w-4 h-4 sm:w-5 sm:h-5 text-primary dark:text-indigo-400" />
-                    <h2 className="text-base sm:text-lg font-black text-foreground">Select Customer</h2>
+                    <h2 className="text-base sm:text-lg font-black text-foreground">{t('cart_page.select_customer', 'Select Customer')}</h2>
                   </div>
 
                   {customersLoading ? (
                     <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground p-3 border rounded-xl bg-card text-card-foreground border border-border shadow-sm">
-                      <Loader2 className="w-4 h-4 animate-spin" /> Loading customers...
+                      <Loader2 className="w-4 h-4 animate-spin" /> {t('cart_page.loading_customers', 'Loading customers...')}
                     </div>
                   ) : (
                     <>
@@ -265,14 +267,14 @@ export default function ShopOwnerCart() {
                         <input
                           value={customerSearch}
                           onChange={e => setCustomerSearch(e.target.value)}
-                          placeholder="Search customer..."
+                          placeholder={t('cart_page.search_placeholder', 'Search customer...')}
                           className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-border bg-card text-card-foreground border border-border shadow-sm text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 dark:ring-indigo-400/50"
                         />
                       </div>
                       
                       <div className="max-h-48 sm:max-h-64 overflow-y-auto space-y-2 rounded-xl border border-border bg-background/30 p-2">
                         {filteredCustomers.length === 0 ? (
-                          <p className="text-center text-xs sm:text-sm text-muted-foreground py-4">No customers found</p>
+                          <p className="text-center text-xs sm:text-sm text-muted-foreground py-4">{t('cart_page.no_customers', 'No customers found')}</p>
                         ) : filteredCustomers.map(c => (
                           <button
                             key={c.id}
@@ -288,7 +290,7 @@ export default function ShopOwnerCart() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-xs sm:text-sm font-bold text-foreground truncate">{c.name}</p>
-                              <p className="text-[10px] sm:text-xs text-muted-foreground">Balance: ₹{c.creditBalance?.toFixed(2)}</p>
+                              <p className="text-[10px] sm:text-xs text-muted-foreground">{t('customer_detail_page.balance_short', 'Bal')}: ₹{c.creditBalance?.toFixed(2)}</p>
                             </div>
                             {selectedCustomer === c.id && <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-primary dark:text-indigo-400 flex-shrink-0" />}
                           </button>
@@ -301,8 +303,8 @@ export default function ShopOwnerCart() {
                             {selectedCustomerObj.name[0]}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs sm:text-sm font-bold text-foreground truncate">{selectedCustomerObj.name}</p>
-                            <p className="text-[10px] sm:text-xs text-muted-foreground">Outstanding: ₹{selectedCustomerObj.creditBalance?.toFixed(2)}</p>
+                             <p className="text-xs sm:text-sm font-bold text-foreground truncate">{selectedCustomerObj.name}</p>
+                             <p className="text-[10px] sm:text-xs text-muted-foreground">{t('customer_detail_page.outstanding', 'Outstanding')}: ₹{selectedCustomerObj.creditBalance?.toFixed(2)}</p>
                           </div>
                           <button onClick={() => setSelectedCustomer('')} className="text-muted-foreground hover:text-foreground flex-shrink-0">
                             <X className="w-4 h-4" />
@@ -315,11 +317,11 @@ export default function ShopOwnerCart() {
 
                 {/* Notes Card */}
                 <div className="glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all p-3 sm:p-6">
-                  <label className="text-xs sm:text-sm font-bold text-muted-foreground mb-2 block">Notes (optional)</label>
+                  <label className="text-xs sm:text-sm font-bold text-muted-foreground mb-2 block">{t('cart_page.notes_label', 'Notes (optional)')}</label>
                   <input
                     value={notes}
                     onChange={e => setNotes(e.target.value)}
-                    placeholder="e.g. Monthly purchase..."
+                    placeholder={t('cart_page.notes_placeholder', 'e.g. Monthly purchase...')}
                     className="w-full px-3 py-2.5 rounded-xl border border-border bg-card text-card-foreground border border-border shadow-sm text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 dark:ring-indigo-400/50"
                   />
                 </div>
@@ -327,13 +329,13 @@ export default function ShopOwnerCart() {
                 {/* Total & Submit Card */}
                 <div className="glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all space-y-3 sm:space-y-4 p-4 sm:p-6">
                   <div className="flex justify-between items-center pb-3 border-b border-border/50">
-                    <span className="text-xs sm:text-sm text-muted-foreground font-semibold">Total Credit</span>
+                    <span className="text-xs sm:text-sm text-muted-foreground font-semibold">{t('customer_detail_page.total_credit')}</span>
                     <span className="text-xl sm:text-2xl font-black text-red-500">₹{cartTotal.toFixed(2)}</span>
                   </div>
                   
                   {!selectedCustomer && (
                     <p className="text-[10px] sm:text-xs text-primary dark:text-indigo-400 font-semibold flex items-center gap-1.5 sm:gap-2">
-                      <UserCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Please select a customer above
+                      <UserCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> {t('cart_page.please_select_customer', 'Please select a customer above')}
                     </p>
                   )}
                   
@@ -347,7 +349,7 @@ export default function ShopOwnerCart() {
                     ) : (
                       <>
                         <IndianRupee className="w-4 h-4 sm:w-5 sm:h-5" />
-                        <span>Add to Credit</span>
+                        <span>{t('cart_page.add_to_credit', 'Add to Credit')}</span>
                         {selectedCustomerObj && <span className="hidden sm:inline text-teal-200 text-xs sm:text-sm">→ {selectedCustomerObj.name}</span>}
                       </>
                     )}

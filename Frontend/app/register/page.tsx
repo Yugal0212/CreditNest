@@ -8,38 +8,16 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
+import { useTranslation } from 'react-i18next';
 import {
   Zap, ShieldCheck, TrendingUp, Store,
   Sun, Moon, Mail, Lock, User, ChevronRight, Eye, EyeOff, ShoppingBag,
   Phone, MapPin, AlertCircle, Loader2, BadgeCheck, Globe,
 } from 'lucide-react';
-
-const benefits = [
-  { icon: ShieldCheck, text: 'OTP-verified onboarding', color: 'text-[#D4A017]' },
-  { icon: TrendingUp, text: 'Daily dues tracking', color: 'text-[#D4A017]' },
-  { icon: Store, text: 'Built for shop owners', color: 'text-[#D4A017]' },
-];
-
-const floatingIcons = [
-  { icon: Zap, size: 'h-9 w-9', position: 'left-[9%] top-[16%]' },
-  { icon: Store, size: 'h-8 w-8', position: 'left-[80%] top-[14%]' },
-  { icon: ShieldCheck, size: 'h-8 w-8', position: 'left-[11%] top-[76%]' },
-  { icon: TrendingUp, size: 'h-7 w-7', position: 'left-[79%] top-[79%]' },
-];
-
-const trustItems = [
-  { icon: ShieldCheck, label: 'OTP Verified' },
-  { icon: BadgeCheck, label: 'RBI Compliant' },
-  { icon: Globe, label: '256-bit TLS' },
-];
-
-const stats = [
-  { value: '5,000+', label: 'Active Stores' },
-  { value: '₹200M+', label: 'Credit Tracked' },
-  { value: '99.9%', label: 'Uptime SLA' },
-];
+import { AuthHero } from '@/components/AuthHero';
 
 export default function RegisterPage() {
+  const { t } = useTranslation();
   const [shopName, setShopName]       = useState('');
   const [ownerName, setOwnerName]     = useState('');
   const [address, setAddress]         = useState('');
@@ -54,6 +32,12 @@ export default function RegisterPage() {
   const { theme, toggleTheme }        = useTheme();
   const router                        = useRouter();
   const isDark                        = theme === 'dark';
+
+  const trustItems = [
+    { icon: ShieldCheck, label: t('trust.otp_verified', 'OTP Verified') },
+    { icon: BadgeCheck, label: t('trust.rbi_compliant', 'RBI Compliant') },
+    { icon: Globe, label: t('trust.tls', '256-bit TLS') },
+  ];
 
   // Auto-redirect if already logged in
   useEffect(() => {
@@ -77,7 +61,7 @@ export default function RegisterPage() {
       }
       
       // Call shop owner registration API
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/shop-owner/register`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/shop-owner/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -116,113 +100,26 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="auth-page min-h-screen bg-[#0D2235]">
-      <div className="grid min-h-screen lg:grid-cols-[1.15fr_0.85fr]">
-        <section className="relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between">
-          <div className="absolute inset-0 bg-[#0D2235]" />
-          <div className="absolute inset-0 opacity-[0.16] bg-[radial-gradient(circle,#5DADE2_1px,transparent_1px)] bg-size-[28px_28px]" />
-          <div className="absolute -bottom-48 -right-24 h-145 w-145 rounded-full bg-[#D4A017]/10 blur-[100px]" />
-          <div className="absolute -left-32 -top-32 h-105 w-105 rounded-full bg-[#2E86C1]/12 blur-[80px]" />
-          <div className="absolute left-0 top-[62%] h-px w-full rotate-[-15deg] scale-x-150 bg-linear-to-r from-transparent via-[#D4A017]/25 to-transparent" />
+    <div className="auth-page min-h-screen bg-[#0D2235] lg:h-screen lg:overflow-hidden">
+      <div className="grid min-h-screen lg:h-full lg:grid-cols-[1.15fr_0.85fr]">
 
-          {floatingIcons.map((fi, i) => {
-            const Icon = fi.icon;
-            return (
-              <div key={i} className={`absolute text-white/20 ${fi.position}`}>
-                <Icon className={fi.size} />
-              </div>
-            );
-          })}
+        {/* ══════════════ LEFT — HERO ══════════════ */}
+        <div className="hidden lg:block lg:h-full lg:overflow-hidden">
+          <AuthHero />
+        </div>
 
-          <div className="relative z-10 flex flex-col px-14 pt-14 xl:px-20">
-            <div className="mb-10 flex items-center gap-3.5">
-              <div className="relative flex h-12 w-12 items-center justify-center rounded-[14px] border border-[#D4A017]/35 bg-[#D4A017]/10">
-                <Zap className="h-6 w-6 text-[#D4A017]" />
-                <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#0D2235] bg-[#1E8449]" />
-              </div>
-              <div>
-                <p className="text-[10.5px] font-black uppercase tracking-[0.38em] text-white/35">Smart Credit</p>
-                <p className="mt-0.5 text-[15px] font-black leading-none tracking-wide text-white">Management System</p>
-              </div>
-            </div>
-
-            <p className="mb-4 text-[10.5px] font-black uppercase tracking-[0.30em] text-[#D4A017]">
-              Trusted by 5,000+ businesses across India
-            </p>
-
-            <h1 className="text-[3.1rem] font-black leading-[1.05] tracking-[-0.025em] text-white xl:text-[3.6rem]">
-              Launch your shop<br />
-              <span className="text-[#D4A017]">credit system</span>{' '}
-              <span className="relative inline-block">
-                today.
-                <span className="absolute -bottom-1 left-0 h-0.75 w-full rounded-full bg-[#D4A017]/35" />
-              </span>
-            </h1>
-
-            <p className="mt-5 max-w-85 text-[14px] leading-[1.80] text-white/50">
-              Create your shop owner account and start onboarding customers, tracking dues, and collections with full visibility.
-            </p>
-
-            <div className="mt-9 space-y-3">
-              {[
-                'Setup in less than 2 minutes',
-                'Daily credit entries with insights',
-                'Secure OTP verification flow',
-              ].map((text, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#D4A017]/15">
-                    <ChevronRight className="h-3 w-3 text-[#D4A017]" />
-                  </div>
-                  <span className="text-[13px] font-medium text-white/60">{text}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="relative z-10 px-14 pb-14 xl:px-20">
-            <div className="mb-6 grid grid-cols-3 gap-px overflow-hidden rounded-2xl border border-white/8 bg-white/4">
-              {stats.map(({ value, label }) => (
-                <div key={label} className="px-5 py-5">
-                  <p className="text-[1.6rem] font-black leading-none text-white">{value}</p>
-                  <p className="mt-1.5 text-[10.5px] font-bold uppercase tracking-widest text-white/35">{label}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="mb-6 space-y-2.5">
-              {benefits.map(({ icon: Icon, text, color }, i) => (
-                <div key={i} className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/8 px-4 py-3">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#D4A017]/20">
-                    <Icon className={`h-3.5 w-3.5 ${color}`} />
-                  </div>
-                  <span className="text-[13px] font-semibold text-white/90">{text}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-5">
-              {trustItems.map(({ icon: Icon, label }, i) => (
-                <React.Fragment key={label}>
-                  <div className="flex items-center gap-1.5">
-                    <Icon className="h-3.5 w-3.5 text-[#D4A017]" />
-                    <span className="text-[11px] font-semibold text-white/40">{label}</span>
-                  </div>
-                  {i < trustItems.length - 1 && <span className="h-3 w-px bg-white/12" />}
-                </React.Fragment>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="relative flex min-h-screen flex-col bg-white dark:bg-slate-900 transition-colors duration-300">
-          <div className="h-0.75 w-full bg-linear-to-r from-[#1A5276] via-[#D4A017] to-[#1A5276]" />
+        {/* ══════════════ RIGHT — FORM PANEL ══════════════ */}
+        <section className="relative flex min-h-screen lg:min-h-0 lg:h-full lg:overflow-y-auto flex-col bg-white dark:bg-slate-900 transition-colors duration-300">
+          <div className="h-[3px] w-full bg-gradient-to-r from-[#1A5276] via-[#D4A017] to-[#1A5276] shrink-0" />
 
           <header className="flex items-center justify-between border-b border-[#F3EEE8] dark:border-slate-800 px-8 py-4">
             <Link href="/" className="flex items-center gap-2 lg:invisible">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0D2235]">
-                <Zap className="h-4 w-4 text-[#D4A017]" />
-              </span>
-              <span className="text-[13px] font-black tracking-wide text-[#0D2235]">SCMS</span>
+              <img 
+                src="/CreditNest.png" 
+                alt="CreditNest Logo" 
+                className="h-8 w-8 object-contain"
+              />
+              <span className="text-[13px] font-black tracking-wide text-[#0D2235]">CreditNest</span>
             </Link>
 
             <div className="ml-auto flex items-center gap-2">
@@ -240,23 +137,23 @@ export default function RegisterPage() {
             <div className="mx-auto w-full max-w-105">
               <div className="mb-8">
                 <div>
-                  <p className="mb-2 text-[10.5px] font-black uppercase tracking-[0.32em] text-[#D4A017]">Secure Onboarding</p>
-                  <h2 className="text-[1.7rem] font-black leading-[1.1] tracking-[-0.022em] text-[#0D2235] dark:text-slate-100"><span>Create your</span><br /><span>shop owner account</span></h2>
-                  <p className="mt-2 text-[13px] text-[#A3A3A3] dark:text-slate-400"><span>Complete details below to receive OTP verification.</span></p>
+                  <p className="mb-2 text-[10.5px] font-black uppercase tracking-[0.32em] text-[#D4A017]">{t('auth.secure_onboarding', 'Secure Onboarding')}</p>
+                  <h2 className="text-[1.7rem] font-black leading-[1.1] tracking-[-0.022em] text-[#0D2235] dark:text-slate-100"><span>{t('auth.create_your', 'Create your')}</span><br /><span>{t('auth.shop_owner_account', 'shop owner account')}</span></h2>
+                  <p className="mt-2 text-[13px] text-[#A3A3A3] dark:text-slate-400"><span>{t('auth.complete_details_otp', 'Complete details below to receive OTP verification.')}</span></p>
                 </div>
 
                 <Link href="/login" className="mt-3 inline-flex rounded-xl border border-[#E5E7EB] dark:border-slate-800 bg-[#FAFAFA] dark:bg-slate-950 px-4 py-2 text-[12px] font-bold text-[#1A5276] dark:text-indigo-400 transition hover:bg-[#F5F0E8] dark:hover:bg-slate-900">
-                  Already have account? Sign in →
+                  {t('auth.already_have_account_signin', 'Already have account? Sign in →')}
                 </Link>
               </div>
 
               <div className="mb-6 rounded-xl border border-[#E5E7EB] dark:border-slate-800 bg-[#FAFAFA] dark:bg-slate-950 px-4 py-3 text-[12px] text-[#6B7280] dark:text-slate-400">
-                Customer accounts are created by shop owners after purchase onboarding.
+                {t('auth.customer_accounts_created', 'Customer accounts are created by shop owners after purchase onboarding.')}
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4.5">
                 <div className="space-y-2">
-                  <Label htmlFor="shopName" className="text-[12px] font-bold text-[#374151] dark:text-slate-300">Shop Name</Label>
+                  <Label htmlFor="shopName" className="text-[12px] font-bold text-[#374151] dark:text-slate-300">{t('auth.shop_name', 'Shop Name')}</Label>
                   <div className="group relative">
                     <ShoppingBag className="pointer-events-none absolute left-3.5 top-1/2 h-3.75 w-3.75 -translate-y-1/2 text-[#9CA3AF] transition group-focus-within:text-[#0D2235] dark:group-focus-within:text-slate-200" />
                     <Input
@@ -273,7 +170,7 @@ export default function RegisterPage() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="ownerName" className="text-[12px] font-bold text-[#374151] dark:text-slate-300">Owner Name</Label>
+                    <Label htmlFor="ownerName" className="text-[12px] font-bold text-[#374151] dark:text-slate-300">{t('auth.owner_name', 'Owner Name')}</Label>
                     <div className="group relative">
                       <User className="pointer-events-none absolute left-3.5 top-1/2 h-3.75 w-3.75 -translate-y-1/2 text-[#9CA3AF] transition group-focus-within:text-[#0D2235] dark:group-focus-within:text-slate-200" />
                       <Input
@@ -288,7 +185,7 @@ export default function RegisterPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="phone" className="text-[12px] font-bold text-[#374151] dark:text-slate-300">Phone Number</Label>
+                    <Label htmlFor="phone" className="text-[12px] font-bold text-[#374151] dark:text-slate-300">{t('auth.phone_number', 'Phone Number')}</Label>
                     <div className="group relative">
                       <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-3.75 w-3.75 -translate-y-1/2 text-[#9CA3AF] transition group-focus-within:text-[#0D2235] dark:group-focus-within:text-slate-200" />
                       <Input
@@ -305,7 +202,7 @@ export default function RegisterPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="address" className="text-[12px] font-bold text-[#374151] dark:text-slate-300">Shop Address</Label>
+                  <Label htmlFor="address" className="text-[12px] font-bold text-[#374151] dark:text-slate-300">{t('auth.shop_address', 'Shop Address')}</Label>
                   <div className="group relative">
                     <MapPin className="pointer-events-none absolute left-3.5 top-1/2 h-3.75 w-3.75 -translate-y-1/2 text-[#9CA3AF] transition group-focus-within:text-[#0D2235] dark:group-focus-within:text-slate-200" />
                     <Input
@@ -321,7 +218,7 @@ export default function RegisterPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-[12px] font-bold text-[#374151] dark:text-slate-300">Email Address</Label>
+                  <Label htmlFor="email" className="text-[12px] font-bold text-[#374151] dark:text-slate-300">{t('auth.email_address', 'Email Address')}</Label>
                   <div className="group relative">
                     <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-3.75 w-3.75 -translate-y-1/2 text-[#9CA3AF] transition group-focus-within:text-[#0D2235] dark:group-focus-within:text-slate-200" />
                     <Input
@@ -337,13 +234,13 @@ export default function RegisterPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="text-[12px] font-bold text-[#374151] dark:text-slate-300">Password</Label>
+                  <Label htmlFor="password" className="text-[12px] font-bold text-[#374151] dark:text-slate-300">{t('auth.password', 'Password')}</Label>
                   <div className="group relative">
                     <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-3.75 w-3.75 -translate-y-1/2 text-[#9CA3AF] transition group-focus-within:text-[#0D2235] dark:group-focus-within:text-slate-200" />
                     <Input
                       id="password"
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="At least 6 characters"
+                      placeholder={t('auth.pwd_placeholder', 'At least 6 characters')}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       disabled={isLoading}
@@ -364,7 +261,7 @@ export default function RegisterPage() {
                     <Mail className="h-3.5 w-3.5 text-[#1A5276] dark:text-indigo-400" />
                   </div>
                   <p className="text-[12px] text-[#6B7280] dark:text-slate-400">
-                    We&apos;ll send a 6-digit OTP to your registered email and phone.
+                    {t('auth.otp_message', "We'll send a 6-digit OTP to your registered email and phone.")}
                   </p>
                 </div>
 
@@ -384,11 +281,11 @@ export default function RegisterPage() {
                   {isLoading ? (
                     <>
                       <Loader2 className="h-4.5 w-4.5 animate-spin" />
-                      Sending OTP...
+                      {t('auth.sending_otp', 'Sending OTP...')}
                     </>
                   ) : (
                     <>
-                      <span>Create account and continue</span>
+                      <span>{t('auth.create_account_continue', 'Create account and continue')}</span>
                       <ChevronRight className="h-4.5 w-4.5" />
                     </>
                   )}
@@ -396,13 +293,13 @@ export default function RegisterPage() {
               </form>
 
               <p className="mt-5 text-center text-[12px] text-[#A3A3A3] dark:text-slate-400">
-                By creating an account, you agree to our Terms and Privacy Policy.
+                {t('auth.terms_privacy', 'By creating an account, you agree to our Terms and Privacy Policy.')}
               </p>
 
               <p className="mt-4 text-center text-[12.5px] text-[#A3A3A3] dark:text-slate-400 sm:hidden">
-                Already have an account?{' '}
+                {t('auth.already_have_account', 'Already have an account?')}{' '}
                 <Link href="/login" className="font-bold text-[#0D2235] dark:text-slate-200 transition hover:text-[#D4A017] dark:hover:text-indigo-400">
-                  Sign in
+                  {t('auth.sign_in', 'Sign in')}
                 </Link>
               </p>
 

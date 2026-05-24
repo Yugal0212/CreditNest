@@ -38,8 +38,17 @@ router.patch('/shops/:shopId/status', adminController.updateShopStatus);
 router.get('/analytics', adminController.getAnalytics);
 
 // =====================================================
-// AUDIT LOGS
+// AUDIT LOGS & API LOGS
 // =====================================================
-router.get('/logs', adminController.getAuditLogs);
+router.get('/logs/audit', adminController.getAuditLogs);
+router.get('/logs/api', adminController.getApiLogs);
+
+// =====================================================
+// SYSTEM MONITORING & OPERATIONS
+// =====================================================
+router.get('/system/health', adminController.getSystemHealth);
+router.post('/system/backup', adminController.runSystemBackup);
+router.post('/system/prune', adminController.runPruneTokens);
+router.post('/system/optimize', adminController.runOptimizeDB);
 
 module.exports = router;

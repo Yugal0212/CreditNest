@@ -6,7 +6,7 @@ const { sendWelcomeEmail } = require('../services/email.service');
 const { sendWelcomeSMS } = require('../services/sms.service');
 const generateAvatarUrl = require('../utils/generateAvatar');
 const logger = require('../utils/logger');
-const { ROLES } = require('../config/constants');
+const { ROLES, OTP } = require('../config/constants');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { normalizePhoneNumber } = require('../utils/phoneValidation');
 
@@ -17,6 +17,24 @@ const getOtpDeliveryMessage = (email, phone) => {
   if (email) return 'OTP sent to your email';
   if (phone) return 'OTP sent to your phone';
   return 'OTP sent successfully';
+};
+
+const logAdminLoginAttempt = async ({ email, userId, success, reason, req }) => {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        userId: userId || null,
+        action: 'ADMIN_LOGIN_ATTEMPT',
+        entityType: 'ADMIN',
+        entityId: userId || null,
+        details: JSON.stringify({ email, success, reason }),
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent') || null,
+      },
+    });
+  } catch (error) {
+    logger.error('Failed to log admin login attempt:', error);
+  }
 };
 
 // =====================================================
@@ -38,6 +56,13 @@ exports.adminLogin = asyncHandler(async (req, res) => {
   });
 
   if (!user || user.role !== ROLES.ADMIN) {
+    await logAdminLoginAttempt({
+      email,
+      userId: null,
+      success: false,
+      reason: 'admin_not_found',
+      req,
+    });
     return res.status(401).json({
       success: false,
       message: 'Invalid credentials',
@@ -48,6 +73,13 @@ exports.adminLogin = asyncHandler(async (req, res) => {
   const isPasswordValid = await bcrypt.compare(password, user.admin.passwordHash);
 
   if (!isPasswordValid) {
+    await logAdminLoginAttempt({
+      email,
+      userId: user.id,
+      success: false,
+      reason: 'invalid_password',
+      req,
+    });
     return res.status(401).json({
       success: false,
       message: 'Invalid credentials',
@@ -64,6 +96,14 @@ exports.adminLogin = asyncHandler(async (req, res) => {
   const token = generateToken(user.id, user.email, user.role);
 
   logger.info(`Admin logged in: ${email}`);
+
+  await logAdminLoginAttempt({
+    email,
+    userId: user.id,
+    success: true,
+    reason: 'success',
+    req,
+  });
 
   res.json({
     success: true,
@@ -136,7 +176,7 @@ exports.shopOwnerRegister = asyncHandler(async (req, res) => {
       email: normalizedEmail,
       password,
     },
-    otpExpiresIn: 600, // 10 minutes
+    otpExpiresIn: OTP.EXPIRY_MINUTES * 60,
   });
 });
 
@@ -281,7 +321,7 @@ exports.shopOwnerLogin = asyncHandler(async (req, res) => {
     message: getOtpDeliveryMessage(otpTargets.email, otpTargets.phone),
     identifier: normalizedIdentifier,
     shopName: user.shopOwner.shop.shopName,
-    otpExpiresIn: 600,
+    otpExpiresIn: OTP.EXPIRY_MINUTES * 60,
   });
 });
 
@@ -496,7 +536,7 @@ exports.customerLogin = asyncHandler(async (req, res) => {
   if (!user || !user.customer) {
     return res.status(404).json({
       success: false,
-      message: 'Account not found. Please contact your shop owner.',
+      message: 'No account found. Please contact your shop owner to register you.',
       debug: {
         searchedFor: normalizedIdentifier,
         isEmail: identifier.includes('@'),
@@ -540,7 +580,7 @@ exports.customerLogin = asyncHandler(async (req, res) => {
     message: getOtpDeliveryMessage(otpTargets.email, otpTargets.phone),
     identifier: normalizedIdentifier,
     shopName: user.customer.shop.shopName,
-    otpExpiresIn: 600,
+    otpExpiresIn: OTP.EXPIRY_MINUTES * 60,
   });
 });
 

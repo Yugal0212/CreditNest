@@ -126,11 +126,13 @@ export default function ProfilePage() {
     <DashboardLayout>
       <div className="max-w-3xl mx-auto space-y-6">
 
-        {/* Dynamic Profile Header Card */}
         <div 
-          
-          
-          className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary to-indigo-600 text-white shadow-2xl shadow-indigo-500/30 dark:shadow-indigo-400/30"
+          className="relative overflow-hidden rounded-3xl text-white shadow-2xl shadow-indigo-500/30 dark:shadow-indigo-400/30"
+          style={{ 
+            backgroundImage: isDark 
+              ? 'linear-gradient(135deg, var(--primary) 0%, #4f46e5 100%)' 
+              : 'linear-gradient(135deg, #1A5276 0%, #154360 100%)' 
+          }}
         >
           {/* Glassmorphic overlays */}
           <div className="absolute inset-0 bg-black/10" />
@@ -183,7 +185,7 @@ export default function ProfilePage() {
           <div className="relative bg-black/20 backdrop-blur-md border-t border-white/10 flex items-center justify-between p-4 px-6 md:px-8">
             <div className="flex items-center gap-2">
               <span className="text-white/60 text-xs font-bold uppercase tracking-wider">Account ID</span>
-              <span className="font-mono text-sm font-bold bg-white/10 px-2 py-0.5 rounded text-indigo-100">{user.id.slice(0,8).toUpperCase()}</span>
+              <span className="font-mono text-sm font-bold bg-white/10 px-2 py-0.5 rounded text-indigo-100">{String(user.id).slice(0,8).toUpperCase()}</span>
               <button onClick={() => handleCopy(user.id)} className="p-1 hover:bg-white/20 rounded-md transition-colors"><Copy className="w-3.5 h-3.5" /></button>
             </div>
             <div className="flex items-center gap-2 text-white/80">
@@ -203,7 +205,7 @@ export default function ProfilePage() {
           >
             <div className="flex items-center gap-3 mb-5">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center shadow-md shadow-indigo-500/20 dark:shadow-indigo-400/20">
-                <Globe className="w-5 h-5 text-white" />
+                <Globe className="w-5 h-5 text-indigo-600 dark:text-white" />
               </div>
               <div>
                 <h2 className="font-black text-foreground text-base">Language</h2>
@@ -237,7 +239,7 @@ export default function ProfilePage() {
           >
             <div className="flex items-center gap-3 mb-5">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center shadow-md shadow-indigo-500/20 dark:shadow-indigo-400/20">
-                {isDark ? <Moon className="w-5 h-5 text-white" /> : <Sun className="w-5 h-5 text-white" />}
+                {isDark ? <Moon className="w-5 h-5 text-indigo-600 dark:text-white" /> : <Sun className="w-5 h-5 text-indigo-600 dark:text-white" />}
               </div>
               <div>
                 <h2 className="font-black text-foreground text-base">Appearance</h2>

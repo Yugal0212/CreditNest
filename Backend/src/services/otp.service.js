@@ -45,29 +45,67 @@ const sendOTP = async (identifierOrTargets, type, method = 'email') => {
       throw new Error('No valid OTP destination found');
     }
     
-    // Check if recently sent OTP exists (shorter window in development)
-    const recentWindow = isDevelopment ? 30 * 1000 : 60 * 1000; // 30 seconds in dev, 1 minute in prod
-    const recentOTP = await prisma.oTPVerification.findFirst({
-      where: {
-        identifier: { in: uniqueIdentifiers },
-        createdAt: {
-          gte: new Date(Date.now() - recentWindow),
+      // Block requests while locked
+      const lockedRecord = await prisma.oTPVerification.findFirst({
+        where: {
+          identifier: { in: uniqueIdentifiers },
+          lockedUntil: { gt: new Date() },
         },
-      },
-    });
+        orderBy: { lockedUntil: 'desc' },
+      });
 
-    if (recentOTP && !isDevelopment) {
-      throw new Error('OTP already sent. Please wait 1 minute before requesting again.');
-    }
+      if (lockedRecord) {
+        throw new Error('Account locked due to multiple incorrect OTP attempts. Please try again after 10 minutes.');
+      }
+
+      // Enforce per-identifier rate limit (max requests per hour)
+      const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      const requestCounts = await Promise.all(
+        uniqueIdentifiers.map((identifier) =>
+          prisma.oTPVerification.count({
+            where: {
+              identifier,
+              createdAt: { gte: hourAgo },
+            },
+          })
+        )
+      );
+
+      if (requestCounts.some((count) => count >= OTP.MAX_REQUESTS_PER_HOUR)) {
+        throw new Error('Too many OTP requests. Please try again after 1 hour.');
+      }
+
+      // Check if recently sent OTP exists (shorter window in development)
+      const recentWindow = isDevelopment ? 60 * 1000 : 60 * 1000; // 1 minute
+      const recentOTP = await prisma.oTPVerification.findFirst({
+        where: {
+          identifier: { in: uniqueIdentifiers },
+          createdAt: {
+            gte: new Date(Date.now() - recentWindow),
+          },
+        },
+      });
+
+      if (recentOTP) {
+        throw new Error('OTP already sent. Please wait 1 minute before requesting again.');
+      }
 
     // Generate random OTP (6 digits)
     const otp = generateOTP();
     const expiresAt = new Date(Date.now() + OTP.EXPIRY_MINUTES * 60 * 1000);
 
-    // Delete old OTPs for these identifiers
-    await prisma.oTPVerification.deleteMany({
-      where: { identifier: { in: uniqueIdentifiers } },
-    });
+      // Mark previous OTPs as verified to prevent reuse, but keep for rate-limiting
+      await prisma.oTPVerification.updateMany({
+        where: { identifier: { in: uniqueIdentifiers }, isVerified: false },
+        data: { isVerified: true },
+      });
+
+      // Cleanup very old OTPs to keep collection lean
+      await prisma.oTPVerification.deleteMany({
+        where: {
+          createdAt: { lt: new Date(Date.now() - 2 * 60 * 60 * 1000) },
+        },
+      });
 
     // Store OTP in database for each destination
     await Promise.all(
@@ -163,6 +201,18 @@ const verifyOTP = async (identifierOrIdentifiers, otp) => {
       throw new Error('Identifier is required for OTP verification');
     }
 
+    const lockedRecord = await prisma.oTPVerification.findFirst({
+      where: {
+        identifier: { in: identifiers },
+        lockedUntil: { gt: new Date() },
+      },
+      orderBy: { lockedUntil: 'desc' },
+    });
+
+    if (lockedRecord) {
+      throw new Error('Account locked due to multiple incorrect OTP attempts. Please try again after 10 minutes.');
+    }
+
     // Find OTP record
     const otpRecord = await prisma.oTPVerification.findFirst({
       where: {
@@ -180,30 +230,51 @@ const verifyOTP = async (identifierOrIdentifiers, otp) => {
 
     // Check if expired
     if (new Date() > otpRecord.expiresAt) {
-      await prisma.oTPVerification.deleteMany({ where: { identifier: { in: identifiers } } });
+      await prisma.oTPVerification.updateMany({
+        where: { identifier: { in: identifiers }, otp: otpRecord.otp },
+        data: { isVerified: true },
+      });
       throw new Error('OTP has expired. Please request a new one.');
     }
 
     // Check attempts
     if (otpRecord.attempts >= OTP.MAX_ATTEMPTS) {
-      await prisma.oTPVerification.deleteMany({ where: { identifier: { in: identifiers } } });
-      throw new Error('Maximum OTP attempts exceeded. Please request a new OTP.');
+      await prisma.oTPVerification.updateMany({
+        where: { identifier: { in: identifiers }, otp: otpRecord.otp },
+        data: { lockedUntil: new Date(Date.now() + OTP.LOCK_MINUTES * 60 * 1000) },
+      });
+      throw new Error('Account locked due to multiple incorrect OTP attempts. Please try again after 10 minutes.');
     }
 
     // Verify OTP
     if (otpRecord.otp !== otp) {
-      await prisma.oTPVerification.updateMany({
-        where: {
-          identifier: { in: identifiers },
-          otp: otpRecord.otp,
-        },
-        data: { attempts: otpRecord.attempts + 1 },
-      });
-      throw new Error('Invalid OTP. Please try again.');
+        const nextAttempts = otpRecord.attempts + 1;
+        const updatePayload = { attempts: nextAttempts };
+
+        if (nextAttempts >= OTP.MAX_ATTEMPTS) {
+          updatePayload.lockedUntil = new Date(Date.now() + OTP.LOCK_MINUTES * 60 * 1000);
+        }
+
+        await prisma.oTPVerification.updateMany({
+          where: {
+            identifier: { in: identifiers },
+            otp: otpRecord.otp,
+          },
+          data: updatePayload,
+        });
+
+        if (nextAttempts >= OTP.MAX_ATTEMPTS) {
+          throw new Error('Account locked due to multiple incorrect OTP attempts. Please try again after 10 minutes.');
+        }
+
+        throw new Error('Invalid OTP. Please try again.');
     }
 
-    // Delete OTP records after successful verification
-    await prisma.oTPVerification.deleteMany({ where: { identifier: { in: identifiers } } });
+      // Mark OTP as verified after successful verification
+      await prisma.oTPVerification.updateMany({
+        where: { identifier: { in: identifiers }, otp: otpRecord.otp },
+        data: { isVerified: true },
+      });
 
     logger.info(`OTP verified for ${identifiers.join(', ')}`);
 
@@ -221,9 +292,11 @@ const cleanupExpiredOTPs = async () => {
   try {
     const result = await prisma.oTPVerification.deleteMany({
       where: {
-        expiresAt: {
-          lt: new Date(),
-        },
+        expiresAt: { lt: new Date() },
+        OR: [
+          { lockedUntil: null },
+          { lockedUntil: { lt: new Date() } },
+        ],
       },
     });
 

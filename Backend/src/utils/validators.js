@@ -48,7 +48,7 @@ const customerValidation = {
     body('name').trim().isLength({ min: 2, max: 100 }).withMessage('Name must be 2-100 characters'),
     body('phone').trim().notEmpty().withMessage('Phone number is required')
       .isLength({ min: 10, max: 13 }).withMessage('Phone number must be 10-13 digits'),
-    body('email').optional({ checkFalsy: true }).isEmail().normalizeEmail().withMessage('Valid email is required if provided'),
+    body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
     body('address').optional().trim(),
     body('workplace').optional().trim(),
   ],
@@ -68,7 +68,13 @@ const customerValidation = {
 const productValidation = {
   create: [
     body('productName').trim().isLength({ min: 2, max: 100 }).withMessage('Product name must be 2-100 characters'),
+    body('productNameEn').optional().trim().isLength({ min: 2, max: 100 }).withMessage('Product name (EN) must be 2-100 characters'),
+    body('productNameHi').optional().trim().isLength({ min: 2, max: 100 }).withMessage('Product name (HI) must be 2-100 characters'),
+    body('productNameGu').optional().trim().isLength({ min: 2, max: 100 }).withMessage('Product name (GU) must be 2-100 characters'),
     body('category').trim().notEmpty().withMessage('Category is required'),
+    body('categoryEn').optional().trim(),
+    body('categoryHi').optional().trim(),
+    body('categoryGu').optional().trim(),
     body('unit').trim().notEmpty().withMessage('Unit is required'),
     body('pricePerUnit').isFloat({ min: 0 }).withMessage('Price must be a positive number'),
     body('stockStatus').optional().isIn(['AVAILABLE', 'LOW_STOCK', 'OUT_OF_STOCK']).withMessage('Invalid stock status'),
@@ -77,7 +83,13 @@ const productValidation = {
 
   update: [
     body('productName').optional().trim().isLength({ min: 2, max: 100 }),
+    body('productNameEn').optional().trim().isLength({ min: 2, max: 100 }),
+    body('productNameHi').optional().trim().isLength({ min: 2, max: 100 }),
+    body('productNameGu').optional().trim().isLength({ min: 2, max: 100 }),
     body('category').optional().trim(),
+    body('categoryEn').optional().trim(),
+    body('categoryHi').optional().trim(),
+    body('categoryGu').optional().trim(),
     body('unit').optional().trim(),
     body('pricePerUnit').optional().isFloat({ min: 0 }),
     body('stockStatus').optional().isIn(['AVAILABLE', 'LOW_STOCK', 'OUT_OF_STOCK']).withMessage('Invalid stock status'),

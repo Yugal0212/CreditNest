@@ -68,6 +68,38 @@ router.put(
 router.delete('/products/:productId', shopOwnerController.deleteProduct);
 
 // =====================================================
+// CATEGORY MANAGEMENT
+// =====================================================
+router.get('/categories', shopOwnerController.getAllCategories);
+router.post(
+  '/categories',
+  upload.single('photo'),
+  handleMulterError,
+  shopOwnerController.addCategory
+);
+router.put(
+  '/categories/:categoryId',
+  upload.single('photo'),
+  handleMulterError,
+  shopOwnerController.updateCategory
+);
+router.delete('/categories/:categoryId', shopOwnerController.deleteCategory);
+
+// =====================================================
+// BILL SCANNING & OCR
+// =====================================================
+router.post(
+  '/bills/scan',
+  upload.single('bill'),
+  handleMulterError,
+  shopOwnerController.scanBill
+);
+router.post(
+  '/bills/save-scanned',
+  shopOwnerController.saveScannedProducts
+);
+
+// =====================================================
 // TRANSACTION MANAGEMENT
 // =====================================================
 router.post(

@@ -2,9 +2,10 @@
 
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Search, Plus, Package, Trash2, Loader2, ShoppingBag, CheckSquare, Square,
-  Minus, X, Pencil, Upload, ShoppingCart, CheckCircle2, Trash
+  Minus, X, Pencil, Upload, ShoppingCart, CheckCircle2, Trash, Sparkles, FileText, Play, Info
 } from 'lucide-react';
 
 import { useState, useEffect } from 'react';
@@ -12,6 +13,9 @@ import { useRouter } from 'next/navigation';
 import { shopOwnerAPI } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useTranslation } from 'react-i18next';
 
 type CartItem = { productId: string; quantity: number; unitPrice: number; name: string; unit: string };
 
@@ -36,15 +40,53 @@ const categoryColors: Record<string, string> = {
   General: 'from-slate-400 to-slate-600',
 };
 
+type ScannedProduct = {
+  productName: string;
+  category: string;
+  unit: string;
+  pricePerUnit: number;
+  mrp: number;
+  quantity: number;
+  discount: number;
+  brand: string;
+  gst: string;
+  sku: string;
+};
+
 export default function ShopOwnerProducts() {
   const router = useRouter();
   const { user } = useAuth();
+  const { language } = useLanguage();
+  const { t } = useTranslation();
   const [products, setProducts] = useState<Product[]>([]);
+  
+  // Scanning States
+  const [showScanModal, setShowScanModal] = useState(false);
+  const [billFile, setBillFile] = useState<File | null>(null);
+  const [billPreview, setBillPreview] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [rawOcrText, setRawOcrText] = useState('');
+  const [extractedProducts, setExtractedProducts] = useState<ScannedProduct[]>([]);
+  const [isSavingScan, setIsSavingScan] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [categoriesList, setCategoriesList] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchCategoriesList = async () => {
+      try {
+        const response = await shopOwnerAPI.getCategories();
+        setCategoriesList(response.data.categories || []);
+      } catch (e) {
+        console.error('Failed to load categories list', e);
+      }
+    };
+    fetchCategoriesList();
+  }, [language]);
 
   // Cart state (saved to localStorage) - shop owner specific
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -58,6 +100,7 @@ export default function ShopOwnerProducts() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const openAddModal = () => {
     setIsEditing(false);
@@ -80,6 +123,7 @@ export default function ShopOwnerProducts() {
   const handleSubmitProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setUploadProgress(1); // Start progress bar
     try {
       const data = new FormData();
       data.append('productName', formData.name);
@@ -90,11 +134,16 @@ export default function ShopOwnerProducts() {
       if (formData.description) data.append('description', formData.description);
       if (photoFile) data.append('photo', photoFile);
 
+      const onProgress = (progressEvent: any) => {
+        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        setUploadProgress(percentCompleted);
+      };
+
       if (isEditing && selectedProduct) {
-        await shopOwnerAPI.updateProduct(selectedProduct.id, data);
+        await shopOwnerAPI.updateProduct(selectedProduct.id, data, onProgress);
         toast({ title: 'Success', description: 'Product updated' });
       } else {
-        await shopOwnerAPI.addProduct(data);
+        await shopOwnerAPI.addProduct(data, onProgress);
         toast({ title: 'Success', description: 'Product added' });
       }
       setShowAddModal(false);
@@ -103,12 +152,32 @@ export default function ShopOwnerProducts() {
       toast({ title: 'Error', description: err.response?.data?.message || 'Failed to save', variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
+      setUploadProgress(0); // Reset progress bar
     }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      if (!allowedMimeTypes.includes(file.type.toLowerCase())) {
+        toast({
+          title: 'Invalid File Type',
+          description: 'Only JPG, JPEG, PNG, and WEBP formats are allowed.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: 'File Too Large',
+          description: 'File size exceeds the 5MB limit.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       setPhotoFile(file);
       const reader = new FileReader();
       reader.onloadend = () => setImagePreview(reader.result as string);
@@ -118,7 +187,7 @@ export default function ShopOwnerProducts() {
 
   useEffect(() => {
     fetchProducts();
-  }, [page, categoryFilter]);
+  }, [page, categoryFilter, language]);
 
   // Load cart from localStorage on mount - shop owner specific
   useEffect(() => {
@@ -168,7 +237,7 @@ export default function ShopOwnerProducts() {
       }
     }, 500);
     return () => clearTimeout(delayDebounceFn);
-  }, [search]);
+  }, [search, language]);
 
   const handleSearch = async () => {
     if (!search.trim()) { fetchProducts(); return; }
@@ -236,6 +305,138 @@ export default function ShopOwnerProducts() {
     });
   };
 
+  // Scanning Handlers
+  const handleScanFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const allowedMime = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      if (!allowedMime.includes(file.type.toLowerCase())) {
+        toast({
+          title: 'Invalid File Type',
+          description: 'Please upload only JPG, JPEG, PNG, or WEBP invoice images.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setBillFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setBillPreview(reader.result as string);
+      reader.readAsDataURL(file);
+      
+      // Reset scan states
+      setRawOcrText('');
+      setExtractedProducts([]);
+    }
+  };
+
+  const handleStartScan = async () => {
+    if (!billFile) return;
+
+    setIsScanning(true);
+    setScanProgress(10);
+    
+    // Simulate progression steps for visual delight
+    const interval = setInterval(() => {
+      setScanProgress((prev) => {
+        if (prev >= 90) {
+          clearInterval(interval);
+          return 90;
+        }
+        return prev + 15;
+      });
+    }, 400);
+
+    try {
+      const formData = new FormData();
+      formData.append('bill', billFile);
+
+      const response = await shopOwnerAPI.scanBill(formData);
+      
+      clearInterval(interval);
+      setScanProgress(100);
+      
+      toast({
+        title: 'Scan Completed',
+        description: 'Product details parsed successfully from bill!',
+      });
+
+      setRawOcrText(response.data.rawText || '');
+      setExtractedProducts(response.data.products || []);
+    } catch (err: any) {
+      clearInterval(interval);
+      toast({
+        title: 'Scan Failed',
+        description: err.response?.data?.message || 'Failed to scan and parse bill image.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const handleEditScanField = (index: number, field: keyof ScannedProduct, value: any) => {
+    const updated = [...extractedProducts];
+    if (field === 'pricePerUnit' || field === 'mrp' || field === 'quantity' || field === 'discount') {
+      updated[index] = { ...updated[index], [field]: parseFloat(value) || 0 };
+    } else {
+      updated[index] = { ...updated[index], [field]: value };
+    }
+    setExtractedProducts(updated);
+  };
+
+  const handleDeleteScanProduct = (index: number) => {
+    const updated = [...extractedProducts];
+    updated.splice(index, 1);
+    setExtractedProducts(updated);
+    toast({ description: 'Item removed from scanned preview list.' });
+  };
+
+  const handleAddScanManualProduct = () => {
+    const newProduct: ScannedProduct = {
+      productName: 'New Extracted Product',
+      category: categoriesList[0]?.name || 'Grains',
+      unit: 'Packet',
+      pricePerUnit: 100,
+      mrp: 110,
+      quantity: 1,
+      discount: 10,
+      brand: 'Generic',
+      gst: '18%',
+      sku: `SKU-${Date.now().toString().substring(8)}`
+    };
+    setExtractedProducts([...extractedProducts, newProduct]);
+  };
+
+  const handleSaveScanToDatabase = async () => {
+    if (extractedProducts.length === 0) return;
+
+    setIsSavingScan(true);
+    try {
+      await shopOwnerAPI.saveScannedProducts({ products: extractedProducts });
+      toast({
+        title: 'Products Created',
+        description: `Successfully added ${extractedProducts.length} products to database catalog!`,
+      });
+      // Reset
+      setBillFile(null);
+      setBillPreview(null);
+      setExtractedProducts([]);
+      setRawOcrText('');
+      setShowScanModal(false);
+      
+      // Auto-refresh main product catalog display!
+      fetchProducts();
+    } catch (err: any) {
+      toast({
+        title: 'Save Failed',
+        description: err.response?.data?.message || 'Failed to save scanned products to database.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingScan(false);
+    }
+  };
   const cartTotal = cart.reduce((sum, c) => sum + (c.quantity * c.unitPrice), 0);
   const cartItemCount = cart.reduce((sum, c) => sum + c.quantity, 0);
 
@@ -251,15 +452,23 @@ export default function ShopOwnerProducts() {
             className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
           >
             <div>
-              <h1 className="text-3xl font-black text-foreground tracking-tight">Products</h1>
-              <p className="text-muted-foreground mt-1 text-sm">Manage your inventory and product catalog</p>
+              <h1 className="text-3xl font-black text-foreground tracking-tight">{t('sidebar.items.products')}</h1>
+              <p className="text-muted-foreground mt-1 text-sm">{t('seller_dashboard.subtitle')}</p>
             </div>
-            <button 
-              onClick={openAddModal}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-indigo-500 hover:from-teal-700 hover:to-teal-700 text-white font-bold text-sm shadow-lg shadow-indigo-500/20 dark:shadow-indigo-400/20 transition-all"
-            >
-              <Plus className="w-4 h-4" /> Add Product
-            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <button 
+                onClick={() => setShowScanModal(true)}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-400 font-bold text-sm shadow-sm transition-all"
+              >
+                <Sparkles className="w-4 h-4 text-indigo-400" /> {t('seller_dashboard.scan_bill')}
+              </button>
+              <button 
+                onClick={openAddModal}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-indigo-500 hover:from-indigo-600 hover:to-indigo-600 text-white font-bold text-sm shadow-lg shadow-indigo-500/20 dark:shadow-indigo-400/20 transition-all"
+              >
+                <Plus className="w-4 h-4" /> {t('seller_dashboard.add_product')}
+              </button>
+            </div>
           </div>
 
           {/* Search & Filters */}
@@ -275,7 +484,7 @@ export default function ShopOwnerProducts() {
                 <input 
                   value={search} 
                   onChange={e => setSearch(e.target.value)} 
-                  placeholder="Search products by name..."
+                  placeholder={t('seller_dashboard.search_placeholder')}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-card text-card-foreground border border-border shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 dark:ring-indigo-400/50" 
                 />
               </div>
@@ -284,31 +493,44 @@ export default function ShopOwnerProducts() {
                 onChange={e => setCategoryFilter(e.target.value)}
                 className="px-4 py-2.5 rounded-xl border border-border bg-card text-card-foreground border border-border shadow-sm text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/50 dark:ring-indigo-400/50"
               >
-                <option value="">All Categories</option>
+                <option value="">{t('seller_dashboard.all_categories')}</option>
                 <option value="Grains">Grains</option>
                 <option value="Pulses">Pulses</option>
                 <option value="Oils">Oils</option>
                 <option value="Spices">Spices</option>
                 <option value="Vegetables">Vegetables</option>
                 <option value="Sweeteners">Sweeteners</option>
+                {categoriesList.map(cat => (
+                  <option key={cat.id} value={cat.name}>{cat.name}</option>
+                ))}
               </select>
             </div>
           </div>
 
           {/* Product Grid */}
           {isLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-8 h-8 animate-spin text-primary dark:text-indigo-400" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2.5">
+              {Array.from({ length: 14 }).map((_, i) => (
+                <div key={i} className="glass-card p-2.5 flex flex-col gap-2">
+                  <Skeleton className="w-full aspect-square rounded-lg" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <div className="flex justify-between items-center mt-1">
+                    <Skeleton className="h-3 w-8" />
+                    <Skeleton className="h-4 w-12" />
+                  </div>
+                  <Skeleton className="h-3 w-16 mx-auto mt-1" />
+                </div>
+              ))}
             </div>
           ) : products.length === 0 ? (
             <div className="text-center py-20">
               <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-30" />
-              <p className="text-muted-foreground font-medium">No products found</p>
+              <p className="text-muted-foreground font-medium">{t('seller_dashboard.no_products_found')}</p>
               <button 
                 onClick={openAddModal} 
                 className="mt-4 mx-auto flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors text-primary dark:text-indigo-400 font-bold text-sm hover:bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors transition"
               >
-                <Plus className="w-4 h-4" /> Add First Product
+                <Plus className="w-4 h-4" /> {t('seller_dashboard.add_first_product')}
               </button>
             </div>
           ) : (
@@ -383,7 +605,7 @@ export default function ShopOwnerProducts() {
                         </div>
 
                         <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${getStatusColor(product.stockStatus)} block text-center truncate`}>
-                          {product.stockStatus.replace('_', ' ')}
+                          {product.stockStatus === 'AVAILABLE' ? t('seller_dashboard.available') : product.stockStatus === 'LOW_STOCK' ? t('seller_dashboard.low_stock') : t('seller_dashboard.out_of_stock')}
                         </span>
 
                         {/* Quantity controls when in cart */}
@@ -482,16 +704,30 @@ export default function ShopOwnerProducts() {
                 </div>
 
                 <form onSubmit={handleSubmitProduct} className="space-y-4">
-                  <div className="flex justify-center mb-4">
+                  <div className="flex flex-col items-center gap-2 mb-4">
                     <div className="relative group cursor-pointer">
                       <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary to-indigo-500 flex items-center justify-center overflow-hidden border-2 border-background shadow-lg">
                         {imagePreview ? <img src={imagePreview} className="w-full h-full object-cover" /> : <Package className="w-10 h-10 text-white" />}
                       </div>
                       <label className="absolute -bottom-2 -right-2 p-2 bg-primary text-white rounded-full cursor-pointer hover:bg-teal-700 shadow-md">
                         <Upload className="w-4 h-4" />
-                        <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                        <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onChange={handleImageChange} className="hidden" />
                       </label>
                     </div>
+                    {uploadProgress > 0 && (
+                      <div className="w-full max-w-[200px] space-y-1 mt-2">
+                        <div className="flex justify-between text-[10px] font-bold text-muted-foreground">
+                          <span>Uploading...</span>
+                          <span>{uploadProgress}%</span>
+                        </div>
+                        <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-primary transition-all duration-300 ease-out" 
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -503,6 +739,9 @@ export default function ShopOwnerProducts() {
                       <label className="text-sm font-bold text-muted-foreground mb-1 block">Category *</label>
                       <select required value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full px-3 py-2.5 rounded-xl border bg-card text-card-foreground border border-border shadow-sm text-sm focus:ring-2 focus:ring-indigo-500/50 dark:ring-indigo-400/50">
                         {Object.keys(categoryColors).map(c => <option key={c} value={c}>{c}</option>)}
+                        {categoriesList.filter(cat => !Object.keys(categoryColors).includes(cat.name)).map(cat => (
+                          <option key={cat.id} value={cat.name}>{cat.name}</option>
+                        ))}
                       </select>
                     </div>
                     <div>
@@ -530,6 +769,276 @@ export default function ShopOwnerProducts() {
               </div>
             </div>
           )}
+
+        {/* Scan Bill Modal */}
+        <AnimatePresence>
+          {showScanModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 py-6" onClick={() => setShowScanModal(false)}>
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="glass-card bg-zinc-950 text-white border border-white/10 shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto flex flex-col justify-between p-6" 
+                onClick={e => e.stopPropagation()}
+              >
+                {/* Modal Header */}
+                <div className="flex justify-between items-center mb-6 border-b border-white/5 pb-4">
+                  <div>
+                    <h2 className="text-2xl font-black flex items-center gap-2 text-indigo-400">
+                      <Sparkles className="w-6 h-6 animate-pulse" /> Bill Scan Catalog Entry
+                    </h2>
+                    <p className="text-xs text-white/60">Upload billing receipts or invoices to extract and dynamically register products.</p>
+                  </div>
+                  <button onClick={() => setShowScanModal(false)} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 transition-all"><X className="w-4 h-4" /></button>
+                </div>
+
+                {/* Modal Content */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                  {/* Left Column: Upload & OCR */}
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-5 lg:col-span-1">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-white/80 flex items-center gap-2">
+                      <FileText className="w-4.5 h-4.5 text-indigo-400" />
+                      Invoice Image
+                    </h3>
+
+                    {/* Drag-and-drop Image Panel */}
+                    <div className="relative border-2 border-dashed border-white/10 rounded-xl p-6 flex flex-col items-center justify-center bg-white/5 hover:bg-white/10 transition-colors cursor-pointer group">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleScanFileChange}
+                        className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                      />
+                      {billPreview ? (
+                        <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden border border-white/10">
+                          <img src={billPreview} alt="Preview" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Upload className="w-8 h-8 text-white" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-6 space-y-2">
+                          <div className="p-3 bg-indigo-500/10 rounded-full text-indigo-400 inline-flex">
+                            <Upload className="w-5 h-5" />
+                          </div>
+                          <p className="text-xs text-white font-bold">Click or drag bill image to upload</p>
+                          <p className="text-[10px] text-white/40">Accepts PNG, JPG, JPEG, WEBP up to 5MB</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Scan Action Button */}
+                    {billFile && (
+                      <button
+                        onClick={handleStartScan}
+                        disabled={isScanning}
+                        className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-600/40 text-white rounded-xl font-bold transition-all text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
+                      >
+                        {isScanning ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Scanning OCR ({scanProgress}%)
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-4 h-4" />
+                            Start OCR Scanning
+                          </>
+                        )}
+                      </button>
+                    )}
+
+                    {/* Progress Bar */}
+                    {isScanning && (
+                      <div className="space-y-1.5">
+                        <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+                          <motion.div
+                            initial={{ width: '0%' }}
+                            animate={{ width: `${scanProgress}%` }}
+                            className="bg-indigo-500 h-full"
+                          />
+                        </div>
+                        <p className="text-[10px] text-indigo-300 animate-pulse text-center">
+                          Intelligently extracting text lines and parsing items...
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Raw Text Box */}
+                    {rawOcrText && (
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-white/40 block">
+                          Parsed Raw Text Log
+                        </label>
+                        <pre className="text-[9px] font-mono p-3 bg-black/50 border border-white/5 rounded-lg text-white/70 overflow-x-auto max-h-32 overflow-y-auto">
+                          {rawOcrText}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Column: Parsed Items editable Grid */}
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-5 lg:col-span-2 flex flex-col justify-between min-h-[350px]">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-white/80 flex items-center gap-2">
+                          <ShoppingBag className="w-4.5 h-4.5 text-indigo-400" />
+                          Parsed Products Preview
+                        </h3>
+                        {extractedProducts.length > 0 && (
+                          <button
+                            onClick={handleAddScanManualProduct}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-bold transition-all text-indigo-400"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Add Item
+                          </button>
+                        )}
+                      </div>
+
+                      {extractedProducts.length === 0 ? (
+                        <div className="py-16 text-center space-y-3 text-white/40 max-w-sm mx-auto">
+                          <div className="inline-flex p-3.5 bg-white/5 border border-white/10 rounded-full">
+                            <FileText className="w-6 h-6 text-white/20" />
+                          </div>
+                          <h4 className="text-sm font-bold text-white">No products parsed yet</h4>
+                          <p className="text-xs text-white/50">
+                            Upload a billing receipt or invoice image on the left, then click OCR scan to automatically extract items.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto border border-white/5 rounded-xl max-h-[45vh] overflow-y-auto">
+                          <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                              <tr className="bg-white/5 border-b border-white/10 text-white/55 text-[10px] uppercase tracking-wider font-bold">
+                                <th className="p-2.5">Product Name</th>
+                                <th className="p-2.5 w-28">Category</th>
+                                <th className="p-2.5 w-16">Unit</th>
+                                <th className="p-2.5 w-20">Price (₹)</th>
+                                <th className="p-2.5 w-20">MRP (₹)</th>
+                                <th className="p-2.5 w-16">GST</th>
+                                <th className="p-2.5 w-10 text-center">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {extractedProducts.map((prod, idx) => (
+                                <tr key={idx} className="border-b border-white/5 hover:bg-white/5 text-white/90">
+                                  {/* Name */}
+                                  <td className="p-2">
+                                    <input
+                                      type="text"
+                                      value={prod.productName}
+                                      onChange={(e) => handleEditScanField(idx, 'productName', e.target.value)}
+                                      className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:bg-zinc-900 text-white"
+                                    />
+                                  </td>
+                                  
+                                  {/* Category Dynamic dropdown select! */}
+                                  <td className="p-2">
+                                    <select
+                                      value={prod.category}
+                                      onChange={(e) => handleEditScanField(idx, 'category', e.target.value)}
+                                      className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:bg-zinc-900 text-indigo-300 font-bold"
+                                    >
+                                      {Object.keys(categoryColors).map(c => <option key={c} value={c}>{c}</option>)}
+                                      {categoriesList.filter(cat => !Object.keys(categoryColors).includes(cat.name)).map(cat => (
+                                        <option key={cat.id} value={cat.name}>{cat.name}</option>
+                                      ))}
+                                    </select>
+                                  </td>
+
+                                  {/* Unit */}
+                                  <td className="p-2">
+                                    <input
+                                      type="text"
+                                      value={prod.unit}
+                                      onChange={(e) => handleEditScanField(idx, 'unit', e.target.value)}
+                                      className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:bg-zinc-900 text-center text-white"
+                                    />
+                                  </td>
+
+                                  {/* Price */}
+                                  <td className="p-2">
+                                    <input
+                                      type="number"
+                                      value={prod.pricePerUnit}
+                                      onChange={(e) => handleEditScanField(idx, 'pricePerUnit', e.target.value)}
+                                      className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:bg-zinc-900 text-white"
+                                    />
+                                  </td>
+
+                                  {/* MRP */}
+                                  <td className="p-2">
+                                    <input
+                                      type="number"
+                                      value={prod.mrp}
+                                      onChange={(e) => handleEditScanField(idx, 'mrp', e.target.value)}
+                                      className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:bg-zinc-900 text-white"
+                                    />
+                                  </td>
+
+                                  {/* GST */}
+                                  <td className="p-2">
+                                    <input
+                                      type="text"
+                                      value={prod.gst}
+                                      onChange={(e) => handleEditScanField(idx, 'gst', e.target.value)}
+                                      className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:bg-zinc-900 text-center text-white"
+                                    />
+                                  </td>
+
+                                  {/* Action delete */}
+                                  <td className="p-2 text-center">
+                                    <button
+                                      onClick={() => handleDeleteScanProduct(idx)}
+                                      className="p-1 text-white/50 hover:text-red-400 hover:bg-white/5 rounded transition-all"
+                                    >
+                                      <Trash className="w-3.5 h-3.5" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Modal Save Footer */}
+                    {extractedProducts.length > 0 && (
+                      <div className="border-t border-white/10 pt-4 mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="flex items-start gap-1.5 text-white/50 text-[10px]">
+                          <Info className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0 mt-0.5" />
+                          <span>
+                            Parsed items will automatically be uploaded and matched to dynamic inventory.
+                          </span>
+                        </div>
+
+                        <button
+                          onClick={handleSaveScanToDatabase}
+                          disabled={isSavingScan}
+                          className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-600/40 text-white rounded-xl font-bold transition-all text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-500/20 active:scale-95"
+                        >
+                          {isSavingScan ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              Saving Catalog...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Save & Import Products
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
         
 
       </DashboardLayout>

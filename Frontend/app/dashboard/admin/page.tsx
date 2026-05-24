@@ -12,6 +12,7 @@ import { useState, useEffect } from 'react';
 import { adminAPI } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import { useTranslation } from 'react-i18next';
 
 interface DashboardStats {
   totalShops: number;
@@ -27,6 +28,7 @@ interface DashboardStats {
 export default function AdminDashboard() {
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const isDark = theme === 'dark';
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,7 +61,10 @@ export default function AdminDashboard() {
 
   const cardStyle: React.CSSProperties = {
     background: T.card,
-    border: `1px solid ${T.cardBorder}`,
+    borderTop: `1px solid ${T.cardBorder}`,
+    borderRight: `1px solid ${T.cardBorder}`,
+    borderBottom: `1px solid ${T.cardBorder}`,
+    borderLeft: `1px solid ${T.cardBorder}`,
     borderRadius: '12px',
     boxShadow: T.cardShadow,
   };
@@ -92,23 +97,23 @@ export default function AdminDashboard() {
   }
 
   const kpiCards = [
-    { title: 'Total Users',   value: (stats.totalShops + stats.totalCustomers).toString(), sub: `${stats.activeShops} active shops`, icon: Users,      accent: '#3B82F6', accentBg: isDark ? '#1E3A5F' : '#EFF6FF', badge: `${stats.activeShops} active` },
-    { title: 'Shop Owners',   value: stats.totalShops.toString(),                          sub: `${stats.activeShops} active`,       icon: Store,      accent: '#10B981', accentBg: isDark ? '#14352A' : '#F0FDF4', badge: `${stats.activeShops} active` },
-    { title: 'Customers',     value: stats.totalCustomers.toString(),                      sub: 'Registered',                        icon: CreditCard, accent: '#8B5CF6', accentBg: isDark ? '#2D1B5E' : '#F5F3FF', badge: 'Registered' },
-    { title: 'Total Credit',  value: `₹${(stats.totalCreditOutstanding / 100000).toFixed(2)}L`, sub: `₹${(stats.monthlyRevenue/1000).toFixed(1)}K this month`, icon: TrendingUp, accent: '#F59E0B', accentBg: isDark ? '#3D2A00' : '#FFFBEB', badge: `₹${(stats.monthlyRevenue/1000).toFixed(1)}K/mo` },
+    { title: t('admin_dashboard.total_users'),   value: (stats.totalShops + stats.totalCustomers).toString(), sub: `${stats.activeShops} ${t('admin_dashboard.active_shops')}`, icon: Users,      accent: '#3B82F6', accentBg: isDark ? '#1E3A5F' : '#EFF6FF', badge: `${stats.activeShops} ${t('admin_dashboard.active')}` },
+    { title: t('admin_dashboard.shop_owners'),   value: stats.totalShops.toString(),                          sub: `${stats.activeShops} ${t('admin_dashboard.active')}`,       icon: Store,      accent: '#10B981', accentBg: isDark ? '#14352A' : '#F0FDF4', badge: `${stats.activeShops} ${t('admin_dashboard.active')}` },
+    { title: t('admin_dashboard.customers'),     value: stats.totalCustomers.toString(),                      sub: t('admin_dashboard.registered'),                        icon: CreditCard, accent: '#8B5CF6', accentBg: isDark ? '#2D1B5E' : '#F5F3FF', badge: t('admin_dashboard.registered') },
+    { title: t('admin_dashboard.total_credit'),  value: `₹${(stats.totalCreditOutstanding / 100000).toFixed(2)}L`, sub: `₹${(stats.monthlyRevenue/1000).toFixed(1)}K ${t('admin_dashboard.this_month')}`, icon: TrendingUp, accent: '#F59E0B', accentBg: isDark ? '#3D2A00' : '#FFFBEB', badge: `₹${(stats.monthlyRevenue/1000).toFixed(1)}K/mo` },
   ];
 
   const platformMetrics = [
-    { label: 'Platform Uptime',  value: '99.9%',                                            icon: Activity,  color: '#10B981', bg: isDark ? '#14352A' : '#F0FDF4' },
-    { label: 'Active Shops',     value: stats.activeShops.toString(),                        icon: Store,     color: '#3B82F6', bg: isDark ? '#1E3A5F' : '#EFF6FF' },
-    { label: 'Pending Shops',    value: stats.pendingShops.toString(),                       icon: Shield,    color: '#F59E0B', bg: isDark ? '#3D2A00' : '#FFFBEB' },
-    { label: 'Platform Revenue', value: `₹${(stats.monthlyRevenue / 1000).toFixed(2)}K`,    icon: BarChart2, color: '#8B5CF6', bg: isDark ? '#2D1B5E' : '#F5F3FF' },
+    { label: t('admin_dashboard.operational'),  value: '99.9%',                                            icon: Activity,  color: '#10B981', bg: isDark ? '#14352A' : '#F0FDF4' },
+    { label: t('admin_dashboard.active_shops'),     value: stats.activeShops.toString(),                        icon: Store,     color: '#3B82F6', bg: isDark ? '#1E3A5F' : '#EFF6FF' },
+    { label: t('landing.simple_process'),    value: stats.pendingShops.toString(),                       icon: Shield,    color: '#F59E0B', bg: isDark ? '#3D2A00' : '#FFFBEB' },
+    { label: t('admin_dashboard.total_credit'), value: `₹${(stats.monthlyRevenue / 1000).toFixed(2)}K`,    icon: BarChart2, color: '#8B5CF6', bg: isDark ? '#2D1B5E' : '#F5F3FF' },
   ];
 
   const quickActions = [
-    { label: 'Manage Users',   sub: 'View and control all system users',   icon: Users,    href: '/dashboard/admin/users'     },
-    { label: 'Manage Shops',   sub: 'Approve, suspend or review shops',    icon: Store,    href: '/dashboard/admin/shops'     },
-    { label: 'View Analytics', sub: 'Platform performance & insights',     icon: BarChart2,href: '/dashboard/admin/analytics' },
+    { label: t('sidebar.items.users'),   sub: t('admin_dashboard.manage_users_sub'),   icon: Users,    href: '/dashboard/admin/users'     },
+    { label: t('sidebar.items.shops'),   sub: t('admin_dashboard.manage_shops_sub'),    icon: Store,    href: '/dashboard/admin/shops'     },
+    { label: t('sidebar.items.analytics'), sub: t('admin_dashboard.view_analytics_sub'),     icon: BarChart2,href: '/dashboard/admin/analytics' },
   ];
 
   return (
@@ -120,21 +125,21 @@ export default function AdminDashboard() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
             <div>
               <h1 style={{ fontSize: '22px', fontWeight: 700, color: T.text, letterSpacing: '-0.025em', lineHeight: 1.2, margin: 0 }}>
-                Admin Dashboard
+                {t('admin_dashboard.title')}
               </h1>
               <p style={{ color: T.textSub, marginTop: '4px', fontSize: '13.5px' }}>
-                Welcome back, <strong style={{ color: T.text, fontWeight: 600 }}>{user?.name ?? 'Admin'}</strong> — here&apos;s your platform at a glance.
+                {t('admin_dashboard.welcome')} <strong style={{ color: T.text, fontWeight: 600 }}>{user?.name ?? 'Admin'}</strong>{t('admin_dashboard.glance')}
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: isDark ? '#14352A' : '#F0FDF4', border: `1px solid ${isDark ? '#166534' : '#BBF7D0'}`, borderRadius: '8px' }}>
               <CheckCircle size={13} color="#10B981" strokeWidth={2.5} />
-              <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#10B981' }}>All systems operational</span>
+              <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#10B981' }}>{t('admin_dashboard.operational')}</span>
             </div>
           </div>
 
           {/* ── KPI Cards ────────────────────────────────────── */}
           <div>
-            <p style={{ fontSize: '11px', fontWeight: 600, color: T.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>Key Metrics</p>
+            <p style={{ fontSize: '11px', fontWeight: 600, color: T.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>{t('admin_dashboard.key_metrics')}</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '12px' }}>
               {kpiCards.map((card, i) => {
                 const Icon = card.icon;
@@ -183,7 +188,7 @@ export default function AdminDashboard() {
                 <div style={{ width: '26px', height: '26px', borderRadius: '6px', background: isDark ? '#1E3A5F' : '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Shield size={13} color="#3B82F6" strokeWidth={2} />
                 </div>
-                <span style={{ fontSize: '13.5px', fontWeight: 700, color: T.text }}>Platform Statistics</span>
+                <span style={{ fontSize: '13.5px', fontWeight: 700, color: T.text }}>{t('admin_dashboard.platform_stats')}</span>
               </div>
 
               {/* 4-metric grid */}
@@ -225,7 +230,7 @@ export default function AdminDashboard() {
                 <div style={{ width: '26px', height: '26px', borderRadius: '6px', background: isDark ? '#14352A' : '#F0FDF4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Activity size={13} color="#10B981" strokeWidth={2} />
                 </div>
-                <span style={{ fontSize: '13.5px', fontWeight: 700, color: T.text }}>Quick Actions</span>
+                <span style={{ fontSize: '13.5px', fontWeight: 700, color: T.text }}>{t('admin_dashboard.quick_actions')}</span>
               </div>
 
               <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>

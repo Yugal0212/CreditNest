@@ -12,7 +12,9 @@ import {
 import { useState, useEffect, useMemo } from 'react';
 import { shopOwnerAPI } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
+import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useTranslation } from 'react-i18next';
 
 type Customer = { id: string; name: string; phone?: string };
 type TxItem = { productName: string; quantity: number; unitPrice: number; subtotal: number };
@@ -36,13 +38,13 @@ const fmtDate = (d: string) =>
 const fmtTime = (d: string) =>
   toIST(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-const fmtGroupKey = (d: string) => {
+const fmtGroupKey = (d: string, translateFn: any) => {
   const dt = toIST(d);
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
-  if (dt.toDateString() === today.toDateString()) return 'Today';
-  if (dt.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  if (dt.toDateString() === today.toDateString()) return translateFn('common.today', 'Today');
+  if (dt.toDateString() === yesterday.toDateString()) return translateFn('common.yesterday', 'Yesterday');
   const diff = Math.floor((today.getTime() - dt.getTime()) / 86400000);
   if (diff < 7) return dt.toLocaleDateString('en-IN', { weekday: 'long' });
   return dt.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
@@ -342,6 +344,7 @@ const PDF_LANGUAGES: Record<string, { label: string; translations: Record<string
 };
 
 export default function ShopOwnerHistory() {
+  const { t } = useTranslation();
   const { language } = useLanguage(); // Get current website language
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -412,7 +415,7 @@ export default function ShopOwnerHistory() {
       setTransactions(txRes.data.transactions || []);
       setPayments(payRes.data.payments || []);
     } catch (e: any) {
-      toast({ title: 'Error', description: e.response?.data?.message || 'Failed to load', variant: 'destructive' });
+      toast({ title: t('common.error', 'Error'), description: e.response?.data?.message || t('common.failed', 'Failed'), variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
@@ -528,12 +531,12 @@ export default function ShopOwnerHistory() {
   const dateGroups = useMemo(() => {
     const groups: Record<string, CombinedItem[]> = {};
     filtered.forEach(item => {
-      const key = fmtGroupKey(item.date);
+      const key = fmtGroupKey(item.date, t);
       if (!groups[key]) groups[key] = [];
       groups[key].push(item);
     });
     return Object.entries(groups);
-  }, [filtered]);
+  }, [filtered, t]);
 
   // Summary stats
   const totalCredit = useMemo(() => filtered.filter(i => i._type === 'credit').reduce((s, t) => s + ((t as Transaction).totalAmount || 0), 0), [filtered]);
@@ -553,9 +556,9 @@ export default function ShopOwnerHistory() {
 
   // ──── Export PDF with jspdf-autotable (reliable, no html2canvas issues) ────
   const exportPDF = async () => {
-    if (filtered.length === 0) { toast({ title: 'Nothing to export', variant: 'destructive' }); return; }
+    if (filtered.length === 0) { toast({ title: t('history.no_data_export', 'Nothing to export'), variant: 'destructive' }); return; }
     
-    toast({ title: '📄 Generating PDF...', description: 'Please wait' });
+    toast({ title: `📄 ${t('history.generating_pdf', 'Generating PDF...')}`, description: t('common.processing', 'Please wait') });
     setIsExporting(true);
 
     try {
@@ -615,7 +618,7 @@ export default function ShopOwnerHistory() {
             details,
             `${item._type === 'credit' ? '+' : '-'}Rs.${amt.toLocaleString()}`,
             status,
-            item.id.slice(-6).toUpperCase()
+            String(item.id).slice(-6).toUpperCase()
           ];
         }),
         theme: 'striped',
@@ -692,7 +695,7 @@ export default function ShopOwnerHistory() {
       }
 
       const langCode = PDF_LANGUAGES[language]?.label || 'EN';
-      const fileName = `SCMS_History_${langCode}_${datePreset}_${new Date().toISOString().slice(0,10)}.pdf`;
+      const fileName = `CreditNest_History_${langCode}_${datePreset}_${new Date().toISOString().slice(0,10)}.pdf`;
       doc.save(fileName);
       
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -711,10 +714,10 @@ export default function ShopOwnerHistory() {
 
   // ──── Export Excel ────
   const exportExcel = async () => {
-    if (filtered.length === 0) { toast({ title: 'Nothing to export', variant: 'destructive' }); return; }
+    if (filtered.length === 0) { toast({ title: t('history.no_data_export', 'Nothing to export'), variant: 'destructive' }); return; }
     
     // Show loading toast
-    toast({ title: '📊 Generating Excel...', description: 'Please wait' });
+    toast({ title: `📊 ${t('history.generating_excel', 'Generating Excel...')}`, description: t('common.processing', 'Please wait') });
     setIsExporting(true);
     
     try {
@@ -732,7 +735,7 @@ export default function ShopOwnerHistory() {
             : `${(item as Payment).paymentMethod} ${(item as Payment).notes || ''}`,
           [t.amount]: amt,
           [t.status]: item._type === 'credit' ? (item as Transaction).status : 'PAID',
-          [t.ref]: item.id.slice(-8).toUpperCase(),
+          [t.ref]: String(item.id).slice(-8).toUpperCase(),
         };
       });
 
@@ -756,7 +759,7 @@ export default function ShopOwnerHistory() {
       xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(sumRows), 'Summary');
 
       const langCode = PDF_LANGUAGES[language]?.label || 'EN';
-      const fileName = `SCMS_History_${langCode}_${datePreset}_${new Date().toISOString().slice(0,10)}.xlsx`;
+      const fileName = `CreditNest_History_${langCode}_${datePreset}_${new Date().toISOString().slice(0,10)}.xlsx`;
       
       // Use writeFile asynchronously
       await new Promise<void>((resolve) => {
@@ -779,17 +782,17 @@ export default function ShopOwnerHistory() {
     }
   };
 
-  // ── Date preset button labels ──
-  const DATE_PRESETS = [
-    { value: 'today', label: 'Today' },
-    { value: 'yesterday', label: 'Yesterday' },
-    { value: 'week', label: '7 Days' },
-    { value: 'month', label: '30 Days' },
-    { value: '3months', label: '3 Months' },
-    { value: 'year', label: '1 Year' },
-    { value: 'all', label: 'All Time' },
-    { value: 'custom', label: 'Custom' },
-  ] as const;
+  // ──── Date preset button labels ──
+  const DATE_PRESETS: { value: 'all' | 'today' | 'yesterday' | 'week' | 'month' | '3months' | 'year' | 'custom'; label: string }[] = [
+    { value: 'today', label: t('common.today', 'Today') },
+    { value: 'yesterday', label: t('common.yesterday', 'Yesterday') },
+    { value: 'week', label: t('history.preset_week', '7 Days') },
+    { value: 'month', label: t('history.preset_month', '30 Days') },
+    { value: '3months', label: t('history.preset_3months', '3 Months') },
+    { value: 'year', label: t('history.preset_year', '1 Year') },
+    { value: 'all', label: t('history.preset_all', 'All Time') },
+    { value: 'custom', label: t('history.preset_custom', 'Custom') },
+  ];
 
   return (
     <ProtectedRoute requiredRole="SHOP_OWNER">
@@ -804,24 +807,24 @@ export default function ShopOwnerHistory() {
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-indigo-500 flex items-center justify-center shadow-lg flex-shrink-0">
                   <Clock className="w-5 h-5 text-white" />
                 </div>
-                Transaction History
+                {t('sidebar.items.history', 'Transaction History')}
               </h1>
-              <p className="text-muted-foreground mt-1 text-xs sm:text-sm">Complete credit & payment records</p>
+              <p className="text-muted-foreground mt-1 text-xs sm:text-sm">{t('history.subtitle', 'Complete credit & payment records')}</p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <button onClick={fetchAll} disabled={isLoading}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border bg-card text-card-foreground border border-border shadow-sm text-sm font-bold hover:bg-muted transition-all">
-                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} /> {t('common.refresh', 'Refresh')}
               </button>
               <button onClick={exportExcel} disabled={isExporting || filtered.length === 0}
                 className="flex items-center gap-1.5 px-3 py-2 bg-primary hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-all shadow-lg">
                 {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}
-                <span className="hidden sm:inline">Excel</span>
+                <span className="hidden sm:inline">{t('customer_detail_page.btn_excel', 'Excel')}</span>
               </button>
               <button onClick={exportPDF} disabled={isExporting || filtered.length === 0}
                 className="flex items-center gap-1.5 px-3 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-all shadow-lg">
                 {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
-                <span className="hidden sm:inline">PDF</span>
+                <span className="hidden sm:inline">{t('customer_detail_page.btn_pdf', 'PDF')}</span>
               </button>
             </div>
           </div>
@@ -830,9 +833,9 @@ export default function ShopOwnerHistory() {
           <div
             className="grid grid-cols-3 gap-2 sm:gap-3">
             {[
-              { label: 'Credit Given', value: fmtCurrency(totalCredit), full: `₹${totalCredit.toLocaleString()}`, icon: TrendingDown, g: 'from-red-500 to-teal-600', count: filtered.filter(i => i._type === 'credit').length, accent: 'text-red-500' },
-              { label: 'Collected', value: fmtCurrency(totalPaid), full: `₹${totalPaid.toLocaleString()}`, icon: TrendingUp, g: 'from-teal-500 to-teal-600', count: filtered.filter(i => i._type === 'payment').length, accent: 'text-primary dark:text-indigo-400' },
-              { label: 'Net Balance', value: fmtCurrency(Math.abs(netOutstanding)), full: `₹${Math.abs(netOutstanding).toLocaleString()}`, icon: IndianRupee, g: netOutstanding > 0 ? 'from-teal-500 to-teal-600' : 'from-teal-500 to-teal-600', count: filtered.length, accent: netOutstanding > 0 ? 'text-primary dark:text-indigo-400' : 'text-primary dark:text-indigo-400' },
+              { label: t('customer_detail_page.credit_given'), value: fmtCurrency(totalCredit), full: `₹${totalCredit.toLocaleString()}`, icon: TrendingDown, g: 'from-red-500 to-teal-600', count: filtered.filter(i => i._type === 'credit').length, accent: 'text-red-500' },
+              { label: t('history.collected', 'Collected'), value: fmtCurrency(totalPaid), full: `₹${totalPaid.toLocaleString()}`, icon: TrendingUp, g: 'from-teal-500 to-teal-600', count: filtered.filter(i => i._type === 'payment').length, accent: 'text-primary dark:text-indigo-400' },
+              { label: t('history.net_balance', 'Net Balance'), value: fmtCurrency(Math.abs(netOutstanding)), full: `₹${Math.abs(netOutstanding).toLocaleString()}`, icon: IndianRupee, g: netOutstanding > 0 ? 'from-teal-500 to-teal-600' : 'from-teal-500 to-teal-600', count: filtered.length, accent: netOutstanding > 0 ? 'text-primary dark:text-indigo-400' : 'text-primary dark:text-indigo-400' },
             ].map((s, i) => (
               <div key={i}
                 className="glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all p-3 sm:p-4">
@@ -841,7 +844,7 @@ export default function ShopOwnerHistory() {
                 </div>
                 <p className={`text-base sm:text-xl font-black ${s.accent}`} title={s.full}>{s.value}</p>
                 <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">{s.label}</p>
-                <p className="text-[9px] text-muted-foreground/60">{s.count} records</p>
+                <p className="text-[9px] text-muted-foreground/60">{t('history.records_count', '{{count}} records', { count: s.count })}</p>
               </div>
             ))}
           </div>
@@ -861,7 +864,7 @@ export default function ShopOwnerHistory() {
             <button onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
               className="ml-auto flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold border border-border bg-card text-card-foreground border border-border shadow-sm text-muted-foreground hover:bg-muted transition-all">
               {sortDir === 'desc' ? <SortDesc className="w-3.5 h-3.5" /> : <SortAsc className="w-3.5 h-3.5" />}
-              <span className="hidden sm:inline">{sortDir === 'desc' ? 'Newest' : 'Oldest'}</span>
+              <span className="hidden sm:inline">{sortDir === 'desc' ? t('history.newest', 'Newest') : t('history.oldest', 'Oldest')}</span>
             </button>
           </div>
 
@@ -871,12 +874,12 @@ export default function ShopOwnerHistory() {
               <div
                 className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-muted-foreground">From Date</label>
+                  <label className="text-xs font-bold text-muted-foreground">{t('history.from_date', 'From Date')}</label>
                   <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-border bg-card text-card-foreground border border-border shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 dark:ring-indigo-400/50" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-muted-foreground">To Date</label>
+                  <label className="text-xs font-bold text-muted-foreground">{t('history.to_date', 'To Date')}</label>
                   <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-border bg-card text-card-foreground border border-border shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 dark:ring-indigo-400/50" />
                 </div>
@@ -891,7 +894,7 @@ export default function ShopOwnerHistory() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search by customer, product, note, ref ID..."
+                  placeholder={t('history.search_placeholder', 'Search by customer, product, note, ref ID...')}
                   className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border bg-card text-card-foreground border border-border shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 dark:ring-indigo-400/50" />
                 {searchQuery && (
                   <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
@@ -902,7 +905,7 @@ export default function ShopOwnerHistory() {
               <button onClick={() => setShowFilters(f => !f)}
                 className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl border text-sm font-bold transition-all ${showFilters ? 'bg-primary text-white border-primary' : 'border-border bg-card text-card-foreground border border-border shadow-sm text-muted-foreground hover:bg-muted'}`}>
                 <Filter className="w-4 h-4" />
-                <span className="hidden sm:inline">Filters</span>
+                <span className="hidden sm:inline">{t('history.filters', 'Filters')}</span>
                 {activeFilterCount > 0 && (
                   <span className={`text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center ${showFilters ? 'bg-white text-primary dark:text-indigo-400' : 'bg-primary text-white'}`}>
                     {activeFilterCount}
@@ -921,15 +924,15 @@ export default function ShopOwnerHistory() {
                     {/* Type filter */}
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                        <Tag className="w-3 h-3" /> Transaction Type
+                        <Tag className="w-3 h-3" /> {t('history.transaction_type', 'Transaction Type')}
                       </label>
                       <div className="flex gap-1.5">
-                        {(['all', 'credit', 'payment'] as const).map(t => (
-                          <button key={t} onClick={() => setTypeFilter(t)}
-                            className={`flex-1 py-2 rounded-lg text-xs font-bold capitalize transition-all ${typeFilter === t
-                              ? t === 'credit' ? 'bg-red-500 text-white' : t === 'payment' ? 'bg-primary text-white' : 'bg-primary text-white'
+                        {(['all', 'credit', 'payment'] as const).map(tFilter => (
+                          <button key={tFilter} onClick={() => setTypeFilter(tFilter)}
+                            className={`flex-1 py-2 rounded-lg text-xs font-bold capitalize transition-all ${typeFilter === tFilter
+                              ? tFilter === 'credit' ? 'bg-red-500 text-white' : tFilter === 'payment' ? 'bg-primary text-white' : 'bg-primary text-white'
                               : 'border border-border text-muted-foreground hover:bg-muted'}`}>
-                            {t === 'credit' ? '↑ Credit' : t === 'payment' ? '↓ Payment' : 'All'}
+                            {tFilter === 'credit' ? t('history.type_credit', '↑ Credit') : tFilter === 'payment' ? t('history.type_payment', '↓ Payment') : t('common.all', 'All')}
                           </button>
                         ))}
                       </div>
@@ -938,11 +941,11 @@ export default function ShopOwnerHistory() {
                     {/* Customer filter */}
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                        <User className="w-3 h-3" /> Customer
+                        <User className="w-3 h-3" /> {t('customer_detail_page.customer', 'Customer')}
                       </label>
                       <select value={customerFilter} onChange={e => setCustomerFilter(e.target.value)}
                         className="w-full px-3 py-2 rounded-xl border border-border bg-card text-card-foreground border border-border shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 dark:ring-indigo-400/50">
-                        <option value="all">All Customers</option>
+                        <option value="all">{t('history.all_customers', 'All Customers')}</option>
                         {customers.map(c => <option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ''}</option>)}
                       </select>
                     </div>
@@ -950,25 +953,25 @@ export default function ShopOwnerHistory() {
                     {/* Credit Status */}
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                        <Sparkles className="w-3 h-3" /> Credit Status
+                        <Sparkles className="w-3 h-3" /> {t('history.credit_status', 'Credit Status')}
                       </label>
                       <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
                         className="w-full px-3 py-2 rounded-xl border border-border bg-card text-card-foreground border border-border shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 dark:ring-indigo-400/50">
-                        <option value="all">All Statuses</option>
-                        <option value="PAID">Paid</option>
-                        <option value="PARTIAL">Partial</option>
-                        <option value="PENDING">Pending</option>
+                        <option value="all">{t('history.all_statuses', 'All Statuses')}</option>
+                        <option value="PAID">{t('customers_page.status_cleared')}</option>
+                        <option value="PARTIAL">{t('history.status_partial', 'Partial')}</option>
+                        <option value="PENDING">{t('customers_page.status_overdue')}</option>
                       </select>
                     </div>
 
                     {/* Payment Method */}
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                        <CreditCard className="w-3 h-3" /> Payment Method
+                        <CreditCard className="w-3 h-3" /> {t('customer_detail_page.payment_method')}
                       </label>
                       <select value={payMethodFilter} onChange={e => setPayMethodFilter(e.target.value)}
                         className="w-full px-3 py-2 rounded-xl border border-border bg-card text-card-foreground border border-border shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 dark:ring-indigo-400/50">
-                        <option value="all">All Methods</option>
+                        <option value="all">{t('history.all_methods', 'All Methods')}</option>
                         <option value="CASH">Cash</option>
                         <option value="UPI">UPI</option>
                         <option value="CARD">Card</option>
@@ -979,13 +982,13 @@ export default function ShopOwnerHistory() {
                     {/* Amount range */}
                     <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                        <IndianRupee className="w-3 h-3" /> Amount Range (₹)
+                        <IndianRupee className="w-3 h-3" /> {t('history.amount_range', 'Amount Range (₹)')}
                       </label>
                       <div className="flex gap-2">
-                        <input type="number" value={minAmount} onChange={e => setMinAmount(e.target.value)} placeholder="Min"
+                        <input type="number" value={minAmount} onChange={e => setMinAmount(e.target.value)} placeholder={t('history.min', 'Min')}
                           className="flex-1 px-3 py-2 rounded-xl border border-border bg-card text-card-foreground border border-border shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 dark:ring-indigo-400/50" />
-                        <span className="text-muted-foreground self-center text-xs font-bold">to</span>
-                        <input type="number" value={maxAmount} onChange={e => setMaxAmount(e.target.value)} placeholder="Max"
+                        <span className="text-muted-foreground self-center text-xs font-bold">{t('common.to', 'to')}</span>
+                        <input type="number" value={maxAmount} onChange={e => setMaxAmount(e.target.value)} placeholder={t('history.max', 'Max')}
                           className="flex-1 px-3 py-2 rounded-xl border border-border bg-card text-card-foreground border border-border shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 dark:ring-indigo-400/50" />
                       </div>
                     </div>
@@ -994,11 +997,11 @@ export default function ShopOwnerHistory() {
                   {activeFilterCount > 0 && (
                     <div className="mt-3 pt-3 border-t border-border/30 flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
-                        <span className="font-bold text-primary dark:text-indigo-400">{activeFilterCount}</span> active filter{activeFilterCount > 1 ? 's' : ''}
+                        <span className="font-bold text-primary dark:text-indigo-400">{activeFilterCount}</span> {t('history.active_filters', '{{count}} active filters', { count: activeFilterCount })}
                       </span>
                       <button onClick={resetFilters}
                         className="flex items-center gap-1 text-xs font-bold text-red-500 hover:text-red-600 transition-colors">
-                        <X className="w-3 h-3" /> Clear All Filters
+                        <X className="w-3 h-3" /> {t('history.clear_all', 'Clear All Filters')}
                       </button>
                     </div>
                   )}
@@ -1010,7 +1013,7 @@ export default function ShopOwnerHistory() {
           {/* ── Record count / sort bar ── */}
           <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
             <span>
-              <span className="font-black text-foreground text-sm">{filtered.length}</span> records
+              <span className="font-black text-foreground text-sm">{filtered.length}</span> {t('history.records_count', '{{count}} records', { count: filtered.length })}
               {customerFilter !== 'all' && (
                 <span className="ml-1.5 px-2 py-0.5 rounded-full bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors text-primary dark:text-indigo-400 font-bold">
                   {customers.find(c => c.id === customerFilter)?.name}
@@ -1020,27 +1023,24 @@ export default function ShopOwnerHistory() {
             </span>
             <span className="flex items-center gap-1 text-[10px]">
               <ArrowUpDown className="w-3 h-3" />
-              {sortDir === 'desc' ? 'Newest first' : 'Oldest first'}
+              {sortDir === 'desc' ? t('history.newest_first', 'Newest first') : t('history.oldest_first', 'Oldest first')}
             </span>
           </div>
 
           {/* ── Transaction list ── */}
           {isLoading ? (
-            <div className="flex items-center justify-center py-24">
-              <div className="text-center">
-                <Loader2 className="w-10 h-10 animate-spin text-primary dark:text-indigo-400 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground font-medium">Loading transactions...</p>
-              </div>
+            <div className="pt-2">
+              <TableSkeleton columns={5} rows={6} />
             </div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-24">
               <CreditCard className="w-16 h-16 text-muted-foreground/20 mx-auto mb-4" />
-              <p className="text-muted-foreground font-bold text-lg">No transactions found</p>
-              <p className="text-muted-foreground/60 text-sm mt-1.5">Try adjusting your filters or date range</p>
+              <p className="text-muted-foreground font-bold text-lg">{t('history.no_transactions', 'No transactions found')}</p>
+              <p className="text-muted-foreground/60 text-sm mt-1.5">{t('history.no_transactions_desc', 'Try adjusting your filters or date range')}</p>
               {activeFilterCount > 0 && (
                 <button onClick={resetFilters}
                   className="mt-4 px-4 py-2 rounded-xl bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors text-primary dark:text-indigo-400 text-sm font-bold hover:bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors transition-colors">
-                  Clear All Filters
+                  {t('history.clear_all', 'Clear All Filters')}
                 </button>
               )}
             </div>
@@ -1048,8 +1048,8 @@ export default function ShopOwnerHistory() {
             <div className="space-y-6 pb-6">
               
                 {dateGroups.map(([dateLabel, items]) => {
-                  const dayCredit = items.filter(i => i._type === 'credit').reduce((s, t) => s + ((t as Transaction).totalAmount || 0), 0);
-                  const dayPay = items.filter(i => i._type === 'payment').reduce((s, p) => s + ((p as Payment).amount || 0), 0);
+                  const dayCredit = items.filter(i => i._type === 'credit').reduce((s, tValue) => s + ((tValue as Transaction).totalAmount || 0), 0);
+                  const dayPay = items.filter(i => i._type === 'payment').reduce((s, pValue) => s + ((pValue as Payment).amount || 0), 0);
 
                   return (
                     <div key={dateLabel}>
@@ -1133,7 +1133,7 @@ export default function ShopOwnerHistory() {
                                     {isCr ? '+' : '-'}₹{amt.toLocaleString()}
                                   </p>
                                   {isCr && tx!.balance > 0 && (
-                                    <p className="text-[10px] text-muted-foreground">Bal: ₹{tx!.balance.toLocaleString()}</p>
+                                    <p className="text-[10px] text-muted-foreground">{t('customer_detail_page.balance_short', 'Bal')}: ₹{tx!.balance.toLocaleString()}</p>
                                   )}
                                 </div>
 
@@ -1153,7 +1153,7 @@ export default function ShopOwnerHistory() {
 
                                     {isCr && tx!.items.length > 0 && (
                                       <>
-                                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider mb-2">Items Purchased</p>
+                                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider mb-2">{t('history.items_purchased', 'Items Purchased')}</p>
                                         <div className="space-y-1.5 mb-3">
                                           {tx!.items.map((it, i) => (
                                             <div key={i} className="flex items-center justify-between text-xs bg-card text-card-foreground border border-border shadow-sm rounded-lg px-3 py-2">
@@ -1166,21 +1166,21 @@ export default function ShopOwnerHistory() {
                                             </div>
                                           ))}
                                           <div className="flex justify-between text-xs font-black pt-1.5 px-3">
-                                            <span className="text-muted-foreground">Total</span>
+                                            <span className="text-muted-foreground">{t('common.total', 'Total')}</span>
                                             <span className="text-red-500">₹{tx!.totalAmount.toLocaleString()}</span>
                                           </div>
                                         </div>
                                         <div className="grid grid-cols-3 gap-2 text-xs">
                                           <div className="bg-card text-card-foreground border border-border shadow-sm rounded-xl p-2 text-center">
-                                            <p className="text-muted-foreground text-[9px]">Total</p>
+                                            <p className="text-muted-foreground text-[9px]">{t('common.total', 'Total')}</p>
                                             <p className="font-black text-foreground">₹{tx!.totalAmount.toLocaleString()}</p>
                                           </div>
                                           <div className="bg-card text-card-foreground border border-border shadow-sm rounded-xl p-2 text-center">
-                                            <p className="text-muted-foreground text-[9px]">Paid</p>
+                                            <p className="text-muted-foreground text-[9px]">{t('customer_detail_page.paid', 'Paid')}</p>
                                             <p className="font-black text-primary dark:text-indigo-400">₹{tx!.paidAmount?.toLocaleString()}</p>
                                           </div>
                                           <div className="bg-card text-card-foreground border border-border shadow-sm rounded-xl p-2 text-center">
-                                            <p className="text-muted-foreground text-[9px]">Balance</p>
+                                            <p className="text-muted-foreground text-[9px]">{t('customer_detail_page.outstanding', 'Balance')}</p>
                                             <p className="font-black text-primary dark:text-indigo-400">₹{tx!.balance?.toLocaleString()}</p>
                                           </div>
                                         </div>
@@ -1190,11 +1190,11 @@ export default function ShopOwnerHistory() {
                                     {!isCr && (
                                       <div className="grid grid-cols-2 gap-2 text-xs">
                                         <div className="bg-card text-card-foreground border border-border shadow-sm rounded-xl p-2.5">
-                                          <p className="text-muted-foreground text-[9px] uppercase font-black">Method</p>
+                                          <p className="text-muted-foreground text-[9px] uppercase font-black">{t('customer_detail_page.payment_method', 'Method')}</p>
                                           <p className="font-bold text-foreground mt-0.5">{pay!.paymentMethod?.replace('_', ' ')}</p>
                                         </div>
                                         <div className="bg-card text-card-foreground border border-border shadow-sm rounded-xl p-2.5">
-                                          <p className="text-muted-foreground text-[9px] uppercase font-black">Amount</p>
+                                          <p className="text-muted-foreground text-[9px] uppercase font-black">{t('customer_detail_page.paid', 'Amount')}</p>
                                           <p className="font-bold text-primary dark:text-indigo-400 mt-0.5">₹{pay!.amount?.toLocaleString()}</p>
                                         </div>
                                         {pay!.notes && (

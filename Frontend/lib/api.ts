@@ -5,16 +5,13 @@ const getApiBaseUrl = () => {
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL;
   }
-
+  
   if (typeof window !== 'undefined') {
     const { protocol, hostname } = window.location;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:5000/api';
-    }
     return `${protocol}//${hostname}:5000/api`;
   }
 
-  return 'http://localhost:5000/api';
+  return ''; // In SSR without env, fallback to empty to avoid localhost leaks
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -33,9 +30,15 @@ api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // Get token from localStorage
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const language = typeof window !== 'undefined' ? localStorage.getItem('language') : null;
     
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    if (config.headers && language) {
+      config.headers['Accept-Language'] = language;
+      config.headers['X-Language'] = language;
     }
     
     // If sending FormData, remove Content-Type to let browser set it with boundary
@@ -264,8 +267,16 @@ export const adminAPI = {
     api.get('/admin/analytics', { params: { period } }),
 
   // Audit Logs
-  getAuditLogs: (params?: { page?: number; limit?: number; action?: string }) =>
-    api.get('/admin/logs', { params }),
+  getAuditLogs: (params: { page: number; limit: number }) => 
+    api.get('/admin/logs/audit', { params }),
+  getApiLogs: (params: { page: number; limit: number }) => 
+    api.get('/admin/logs/api', { params }),
+
+  // System Health Diagnostics
+  getSystemHealth: () => api.get('/admin/system/health'),
+  runSystemBackup: () => api.post('/admin/system/backup'),
+  runPruneTokens: () => api.post('/admin/system/prune'),
+  runOptimizeDB: () => api.post('/admin/system/optimize'),
 };
 
 // ============= SHOP OWNER APIs =============
@@ -283,25 +294,25 @@ export const shopOwnerAPI = {
   getCustomerHistory: (customerId: string, params?: { startDate?: string; endDate?: string; type?: string }) =>
     api.get(`/shop-owner/customers/${customerId}/history`, { params }),
 
-  addCustomer: (formData: FormData) =>
-    api.post('/shop-owner/customers', formData),
+  addCustomer: (formData: FormData, onUploadProgress?: (progressEvent: any) => void) =>
+    api.post('/shop-owner/customers', formData, { onUploadProgress }),
 
-  updateCustomer: (customerId: string, formData: FormData) =>
-    api.put(`/shop-owner/customers/${customerId}`, formData),
+  updateCustomer: (customerId: string, formData: FormData, onUploadProgress?: (progressEvent: any) => void) =>
+    api.put(`/shop-owner/customers/${customerId}`, formData, { onUploadProgress }),
 
   deleteCustomer: (customerId: string) => api.delete(`/shop-owner/customers/${customerId}`),
 
   // Products
-  getProducts: (params?: { page?: number; limit?: number; category?: string; stockStatus?: string }) =>
+  getProducts: (params?: { page?: number; limit?: number; category?: string; stockStatus?: string; search?: string }) =>
     api.get('/shop-owner/products', { params }),
 
   getProduct: (productId: string) => api.get(`/shop-owner/products/${productId}`),
 
-  addProduct: (formData: FormData) =>
-    api.post('/shop-owner/products', formData),
+  addProduct: (formData: FormData, onUploadProgress?: (progressEvent: any) => void) =>
+    api.post('/shop-owner/products', formData, { onUploadProgress }),
 
-  updateProduct: (productId: string, formData: FormData) =>
-    api.put(`/shop-owner/products/${productId}`, formData),
+  updateProduct: (productId: string, formData: FormData, onUploadProgress?: (progressEvent: any) => void) =>
+    api.put(`/shop-owner/products/${productId}`, formData, { onUploadProgress }),
 
   deleteProduct: (productId: string) => api.delete(`/shop-owner/products/${productId}`),
 
@@ -357,6 +368,25 @@ export const shopOwnerAPI = {
 
   rejectOrder: (orderId: string) =>
     api.post(`/shop-owner/order-requests/${orderId}/reject`),
+
+  // Categories
+  getCategories: (params?: { search?: string }) =>
+    api.get('/shop-owner/categories', { params }),
+
+  addCategory: (formData: FormData, onUploadProgress?: (progressEvent: any) => void) =>
+    api.post('/shop-owner/categories', formData, { onUploadProgress }),
+
+  updateCategory: (categoryId: string, formData: FormData, onUploadProgress?: (progressEvent: any) => void) =>
+    api.put(`/shop-owner/categories/${categoryId}`, formData, { onUploadProgress }),
+
+  deleteCategory: (categoryId: string) => api.delete(`/shop-owner/categories/${categoryId}`),
+
+  // Bill Scanning & OCR
+  scanBill: (formData: FormData, onUploadProgress?: (progressEvent: any) => void) =>
+    api.post('/shop-owner/bills/scan', formData, { onUploadProgress }),
+
+  saveScannedProducts: (data: { products: any[] }) =>
+    api.post('/shop-owner/bills/save-scanned', data),
 };
 
 // ============= CUSTOMER APIs =============

@@ -91,7 +91,9 @@ const seedProducts = async () => {
           data: {
             shopId: shop.id,
             productName: productData.productName,
+            productNameEn: productData.productName,
             category: productData.category,
+            categoryEn: productData.category,
             unit: productData.unit,
             pricePerUnit: productData.pricePerUnit,
             stockStatus: productData.stockStatus,

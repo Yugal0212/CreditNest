@@ -41,43 +41,69 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return error?.response?.data?.message || fallback;
   };
 
+  const getStoredUserSafely = (storedUser: string | null): User | null => {
+    if (!storedUser) return null;
+    try {
+      return JSON.parse(storedUser) as User;
+    } catch {
+      localStorage.removeItem('user');
+      return null;
+    }
+  };
+
   const checkAuth = async () => {
     const token = getAuthToken();
     const storedUser = localStorage.getItem('user');
 
-    if (token && storedUser) {
-      try {
-        // Verify token is still valid
-        const response = await authAPI.verifyToken();
-        if (response.data.success) {
-          setUser(JSON.parse(storedUser));
-        } else {
-          // Token invalid, clear auth
-          removeAuthToken();
-          setUser(null);
-        }
-      } catch (error) {
-        console.error('Token verification failed:', error);
-
-        // If backend is temporarily unavailable (network/5xx/DB outage), don't force logout.
-        // Keep the stored user so the UI doesn't "flash" to login on refresh.
-        const status = (error as any)?.response?.status as number | undefined;
-
-        const isTransient =
-          status === undefined ||
-          status === 503 ||
-          (typeof status === 'number' && status >= 500);
-
-        if (isTransient && storedUser) {
-          setUser(JSON.parse(storedUser));
-        } else {
-          // 401/403 etc: real auth failure -> clear
-          removeAuthToken();
-          setUser(null);
-        }
-      }
+    if (!token) {
+      setUser(null);
+      setIsLoading(false);
+      return;
     }
-    setIsLoading(false);
+
+    try {
+      // Verify token is still valid and prefer canonical user from backend.
+      const response = await authAPI.verifyToken();
+      if (response.data.success) {
+        const verifiedUser = response.data.user as User | undefined;
+        const fallbackUser = getStoredUserSafely(storedUser);
+        const resolvedUser = verifiedUser ?? fallbackUser;
+
+        if (resolvedUser) {
+          setUser(resolvedUser);
+          localStorage.setItem('user', JSON.stringify(resolvedUser));
+        } else {
+          removeAuthToken();
+          setUser(null);
+        }
+      } else {
+        // Token invalid, clear auth
+        removeAuthToken();
+        setUser(null);
+      }
+    } catch (error) {
+      console.error('Token verification failed:', error);
+
+      // If backend is temporarily unavailable (network/5xx/DB outage), don't force logout.
+      // Keep the stored user so the UI doesn't "flash" to login on refresh.
+      const status = (error as any)?.response?.status as number | undefined;
+
+      const isTransient =
+        status === undefined ||
+        status === 503 ||
+        (typeof status === 'number' && status >= 500);
+
+      const fallbackUser = getStoredUserSafely(storedUser);
+      if (isTransient && fallbackUser) {
+        setUser(fallbackUser);
+      } else {
+        // 401/403 etc: real auth failure -> clear
+        removeAuthToken();
+        setUser(null);
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Check authentication on mount
@@ -230,7 +256,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     toast({
       title: 'Registration Successful',
-      description: `Welcome to SCMS, ${userData.name}!`,
+      description: `Welcome to CreditNest, ${userData.name}!`,
     });
   };
 
@@ -245,9 +271,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
       return { requiresOTP: true };
     } catch (error: any) {
-      const message = getApiErrorMessage(error, 'Failed to send OTP');
+      const apiMessage = error.response?.data?.message;
+      const message = getApiErrorMessage(error, apiMessage || 'Failed to send OTP');
+      const isNotFound = error.response?.status === 404;
       toast({
-        title: 'Error',
+        title: isNotFound ? 'Account Not Found' : 'Error',
         description: message,
         variant: 'destructive',
       });

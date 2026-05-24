@@ -13,6 +13,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { shopOwnerAPI } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useTranslation } from 'react-i18next';
 
 type CustomerInfo = {
   id: string; name: string; phone: string; email?: string; address?: string; workplace?: string;
@@ -35,12 +37,12 @@ const CREDIT_STATUS: Record<string, string> = {
 
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 const fmtTime = (d: string) => new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
-const fmtRelative = (d: string) => {
+const fmtRelative = (d: string, t: any) => {
   const diff = Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Yesterday';
-  if (diff < 7) return `${diff}d ago`;
-  if (diff < 30) return `${Math.floor(diff / 7)}w ago`;
+  if (diff === 0) return t('common.today', 'Today');
+  if (diff === 1) return t('common.yesterday', 'Yesterday');
+  if (diff < 7) return t('common.days_ago', '{{count}}d ago', { count: diff });
+  if (diff < 30) return t('common.weeks_ago', '{{count}}w ago', { count: Math.floor(diff / 7) });
   return fmtDate(d);
 };
 
@@ -48,6 +50,8 @@ export default function CustomerProfilePage() {
   const params = useParams();
   const router = useRouter();
   const customerId = params.customerId as string;
+  const { language } = useLanguage();
+  const { t } = useTranslation();
 
   const [customer, setCustomer] = useState<CustomerInfo | null>(null);
   const [transactions, setTransactions] = useState<Tx[]>([]);
@@ -78,7 +82,7 @@ export default function CustomerProfilePage() {
     } catch (e: any) {
       toast({ title: 'Error', description: e.response?.data?.message || 'Failed to load', variant: 'destructive' });
     } finally { setIsLoading(false); }
-  }, [customerId]);
+  }, [customerId, language]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -241,11 +245,10 @@ export default function CustomerProfilePage() {
     <ProtectedRoute requiredRole="SHOP_OWNER">
       <DashboardLayout>
         <div className="max-w-3xl mx-auto space-y-5">
-
           {/* Back */}
           <button onClick={() => router.back()}
             className="flex items-center gap-1.5 text-sm font-bold text-muted-foreground hover:text-foreground transition-colors group">
-            <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" /> Back to Customers
+            <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" /> {t('customer_detail_page.back_to_customers')}
           </button>
 
           {/* ── Customer Profile Card ── */}
@@ -275,7 +278,7 @@ export default function CustomerProfilePage() {
                           </span>
                         )}
                         <span className={`text-xs font-bold px-2 py-0.5 rounded-full border capitalize ${STATUS_COLORS[customer.status] || ''}`}>
-                          {customer.status?.toLowerCase()}
+                          {customer.status === 'ACTIVE' ? t('customers_page.status_active') : customer.status === 'OVERDUE' ? t('customers_page.status_overdue') : t('customers_page.status_cleared')}
                         </span>
                         {customer.status === 'OVERDUE' && <AlertCircle className="w-3.5 h-3.5 text-red-500" />}
                       </div>
@@ -288,21 +291,21 @@ export default function CustomerProfilePage() {
                       onClick={() => router.push(`/dashboard/shop_owner/customers/${customerId}/add-credit`)}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-lg shadow-teal-500/20 transition-all"
                     >
-                      <IndianRupee className="w-3.5 h-3.5" /> Add Credit
+                      <IndianRupee className="w-3.5 h-3.5" /> {t('add_credit_page.add_credit')}
                     </button>
                     {customer.creditBalance > 0 && (
                       <button onClick={() => setShowPayModal(true)}
                         className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-lg shadow-teal-500/20 transition-all">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Record Payment
+                        <CheckCircle2 className="w-3.5 h-3.5" /> {t('customers_page.record_payment')}
                       </button>
                     )}
                     <button onClick={() => router.push(`/dashboard/shop_owner/customers/${customerId}/history`)}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-teal-500/10 hover:bg-teal-500/15 text-teal-600 text-xs font-bold border border-teal-500/20 transition-all">
-                      <History className="w-3.5 h-3.5" /> Full History
+                      <History className="w-3.5 h-3.5" /> {t('sidebar.items.history')}
                     </button>
                     <button onClick={() => setShowDelete(true)}
                       className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/15 transition-all"
-                      title="Delete customer">
+                      title={t('categories_page.delete_tooltip')}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -331,9 +334,9 @@ export default function CustomerProfilePage() {
           {customer && (
             <div className="grid grid-cols-3 gap-2 sm:gap-3">
               {[
-                { label: 'Total Credit', value: `₹${customer.totalCredit?.toLocaleString()}`, color: 'text-red-500', bg: 'from-red-500 to-teal-600', icon: TrendingDown, sub: `${transactions.length} transactions` },
-                { label: 'Total Paid', value: `₹${customer.totalPaid?.toLocaleString()}`, color: 'text-teal-600', bg: 'from-teal-500 to-teal-600', icon: TrendingUp, sub: `${payments.length} payments` },
-                { label: 'Outstanding', value: `₹${customer.creditBalance?.toLocaleString()}`, color: customer.creditBalance > 0 ? 'text-teal-600' : 'text-teal-600', bg: customer.creditBalance > 0 ? 'from-teal-500 to-teal-600' : 'from-teal-500 to-teal-600', icon: IndianRupee, sub: customer.creditBalance > 0 ? 'Needs payment' : 'Fully clear' },
+                { label: t('customer_detail_page.total_credit'), value: `₹${customer.totalCredit?.toLocaleString()}`, color: 'text-red-500', bg: 'from-red-500 to-teal-600', icon: TrendingDown, sub: `${transactions.length} ${t('customer_dashboard.total_transactions')}` },
+                { label: t('customer_detail_page.total_paid'), value: `₹${customer.totalPaid?.toLocaleString()}`, color: 'text-teal-600', bg: 'from-teal-500 to-teal-600', icon: TrendingUp, sub: `${payments.length} ${t('customer_detail_page.payments', 'payments')}` },
+                { label: t('customer_detail_page.outstanding'), value: `₹${customer.creditBalance?.toLocaleString()}`, color: customer.creditBalance > 0 ? 'text-teal-600' : 'text-teal-600', bg: customer.creditBalance > 0 ? 'from-teal-500 to-teal-600' : 'from-teal-500 to-teal-600', icon: IndianRupee, sub: customer.creditBalance > 0 ? t('customer_detail_page.needs_payment') : t('customer_detail_page.fully_clear') },
               ].map((s, i) => (
                 <div key={i}
                   className="glass-card p-3 sm:p-4">
@@ -351,25 +354,25 @@ export default function CustomerProfilePage() {
           {/* ── Tabs & Export ── */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex gap-1.5">
-              {(['overview', 'credit', 'payment'] as const).map(t => (
-                <button key={t} onClick={() => setActiveTab(t)}
-                  className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold capitalize transition-all ${activeTab === t ? 'bg-teal-600 text-white shadow-md shadow-teal-500/25' : 'bg-background/50 border border-border text-muted-foreground hover:bg-muted'}`}>
-                  {t === 'overview' ? '📊 Overview' : t === 'credit' ? '↑ Credits' : '↓ Payments'}
+              {(['overview', 'credit', 'payment'] as const).map(tabKey => (
+                <button key={tabKey} onClick={() => setActiveTab(tabKey)}
+                  className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold capitalize transition-all ${activeTab === tabKey ? 'bg-teal-600 text-white shadow-md shadow-teal-500/25' : 'bg-background/50 border border-border text-muted-foreground hover:bg-muted'}`}>
+                  {tabKey === 'overview' ? t('customer_detail_page.tab_overview', '📊 Overview') : tabKey === 'credit' ? t('customer_detail_page.tab_credits', '↑ Credits') : t('customer_detail_page.tab_payments', '↓ Payments')}
                 </button>
               ))}
             </div>
             <div className="flex gap-2">
-              <button onClick={fetchAll} disabled={isLoading} title="Refresh"
+              <button onClick={fetchAll} disabled={isLoading} title={t('common.refresh', 'Refresh')}
                 className="p-2 rounded-xl border border-border bg-background/50 hover:bg-muted transition-all">
                 <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
               </button>
               <button onClick={exportExcel} disabled={isExporting}
                 className="flex items-center gap-1.5 px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-teal-500/20">
-                <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
+                <FileSpreadsheet className="w-3.5 h-3.5" /> {t('customer_detail_page.btn_excel', 'Excel')}
               </button>
               <button onClick={exportPDF} disabled={isExporting}
                 className="flex items-center gap-1.5 px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-red-500/20">
-                <FileText className="w-3.5 h-3.5" /> PDF
+                <FileText className="w-3.5 h-3.5" /> {t('customer_detail_page.btn_pdf', 'PDF')}
               </button>
             </div>
           </div>
@@ -381,20 +384,17 @@ export default function CustomerProfilePage() {
               {customer && customer.totalCredit > 0 && (
                 <div className="glass-card p-4">
                   <div className="flex justify-between text-xs font-bold mb-2">
-                    <span className="text-muted-foreground">Repayment Progress</span>
+                    <span className="text-muted-foreground">{t('customer_detail_page.repayment_progress')}</span>
                     <span className="text-teal-600">{((customer.totalPaid / customer.totalCredit) * 100).toFixed(0)}%</span>
                   </div>
                   <div className="h-3 bg-muted rounded-full overflow-hidden">
                     <div
-                     
-                     
-                     
                       className="h-full bg-gradient-to-r from-teal-500 to-teal-500 rounded-full"
                     />
                   </div>
                   <div className="flex justify-between text-[10px] mt-1.5 text-muted-foreground">
-                    <span>Paid: ₹{customer.totalPaid?.toLocaleString()}</span>
-                    <span>Remaining: ₹{customer.creditBalance?.toLocaleString()}</span>
+                    <span>{t('customer_detail_page.paid', 'Paid')}: ₹{customer.totalPaid?.toLocaleString()}</span>
+                    <span>{t('customer_detail_page.remaining', 'Remaining')}: ₹{customer.creditBalance?.toLocaleString()}</span>
                   </div>
                 </div>
               )}
@@ -402,7 +402,7 @@ export default function CustomerProfilePage() {
               {/* Recent Activity */}
               <div className="glass-card p-4">
                 <h3 className="font-black text-foreground mb-3 flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-teal-500" /> Recent Activity
+                  <Clock className="w-4 h-4 text-teal-500" /> {t('customer_detail_page.recent_activity')}
                 </h3>
                 {[...transactions.map(t => ({ ...t, _type: 'credit' as const })),
                   ...payments.map(p => ({ ...p, _type: 'payment' as const }))].
@@ -413,8 +413,8 @@ export default function CustomerProfilePage() {
                         {item._type === 'credit' ? <TrendingDown className="w-3.5 h-3.5 text-white" /> : <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-foreground">{item._type === 'credit' ? 'Credit Given' : 'Payment Received'}</p>
-                        <p className="text-[10px] text-muted-foreground">{fmtRelative(item.date)}</p>
+                        <p className="text-xs font-bold text-foreground">{item._type === 'credit' ? t('customer_detail_page.credit_given') : t('customer_detail_page.payment_received')}</p>
+                        <p className="text-[10px] text-muted-foreground">{fmtRelative(item.date, t)}</p>
                       </div>
                       <p className={`text-sm font-black flex-shrink-0 ${item._type === 'credit' ? 'text-red-500' : 'text-teal-600'}`}>
                         {item._type === 'credit' ? '+' : '-'}₹{(item._type === 'credit' ? (item as any).totalAmount : (item as any).amount).toLocaleString()}
@@ -422,7 +422,7 @@ export default function CustomerProfilePage() {
                     </div>
                   ))}
                 {transactions.length === 0 && payments.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground text-sm">No activity yet</div>
+                  <div className="text-center py-8 text-muted-foreground text-sm">{t('customer_detail_page.no_activity')}</div>
                 )}
               </div>
             </div>
@@ -434,7 +434,7 @@ export default function CustomerProfilePage() {
               {transactions.length === 0 ? (
                 <div className="text-center py-16">
                   <Package className="w-12 h-12 text-muted-foreground/20 mx-auto mb-3" />
-                  <p className="text-muted-foreground font-medium">No credit transactions</p>
+                  <p className="text-muted-foreground font-medium">{t('customer_detail_page.no_credit_transactions', 'No credit transactions')}</p>
                 </div>
               ) : transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((tx, i) => (
                 <div key={tx.id}
@@ -446,13 +446,13 @@ export default function CustomerProfilePage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-bold text-foreground text-sm">Credit Sale</p>
+                        <p className="font-bold text-foreground text-sm">{t('customer_detail_page.credit_sale', 'Credit Sale')}</p>
                         <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${CREDIT_STATUS[tx.status] || ''}`}>{tx.status}</span>
                       </div>
                       {tx.items.length > 0 && (
                         <p className="text-xs text-muted-foreground truncate mt-0.5">
                           {tx.items.slice(0, 2).map(i => `${i.productName} ×${i.quantity}`).join(', ')}
-                          {tx.items.length > 2 && ` +${tx.items.length - 2} more`}
+                          {tx.items.length > 2 && ` +${tx.items.length - 2} ${t('common.more', 'more')}`}
                         </p>
                       )}
                       <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
@@ -462,7 +462,7 @@ export default function CustomerProfilePage() {
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="font-black text-red-500 text-base">+₹{tx.totalAmount.toLocaleString()}</p>
-                      {tx.balance > 0 && <p className="text-[10px] text-muted-foreground">Bal: ₹{tx.balance.toLocaleString()}</p>}
+                      {tx.balance > 0 && <p className="text-[10px] text-muted-foreground">{t('customer_detail_page.balance_short', 'Bal')}: ₹{tx.balance.toLocaleString()}</p>}
                     </div>
                     <div>
                       <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
@@ -479,7 +479,7 @@ export default function CustomerProfilePage() {
                           </div>
                         ))}
                         <div className="flex justify-between text-xs font-black pt-1 border-t border-border/30">
-                          <span>Total</span>
+                          <span>{t('common.total', 'Total')}</span>
                           <span className="text-red-500">₹{tx.totalAmount.toLocaleString()}</span>
                         </div>
                       </div>
@@ -496,7 +496,7 @@ export default function CustomerProfilePage() {
               {payments.length === 0 ? (
                 <div className="text-center py-16">
                   <CreditCard className="w-12 h-12 text-muted-foreground/20 mx-auto mb-3" />
-                  <p className="text-muted-foreground font-medium">No payments recorded</p>
+                  <p className="text-muted-foreground font-medium">{t('customer_detail_page.no_payments_recorded', 'No payments recorded')}</p>
                 </div>
               ) : payments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((pay, i) => (
                 <div key={pay.id}
@@ -507,7 +507,7 @@ export default function CustomerProfilePage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-bold text-foreground text-sm">Payment Received</p>
+                        <p className="font-bold text-foreground text-sm">{t('customer_detail_page.payment_received')}</p>
                         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-teal-500/10 text-teal-600 border border-teal-500/20">
                           {pay.paymentMethod?.replace('_', ' ')}
                         </span>
@@ -538,20 +538,20 @@ export default function CustomerProfilePage() {
                 onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-5">
                   <div>
-                    <h2 className="text-xl font-black text-foreground">Record Payment</h2>
-                    <p className="text-sm text-muted-foreground">From: <strong>{customer.name}</strong></p>
+                    <h2 className="text-xl font-black text-foreground">{t('customers_page.record_payment')}</h2>
+                    <p className="text-sm text-muted-foreground">{t('customer_detail_page.from_label', 'From:')} <strong>{customer.name}</strong></p>
                   </div>
                   <button onClick={() => setShowPayModal(false)} className="w-8 h-8 rounded-xl bg-muted flex items-center justify-center">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
                 <div className="p-3 rounded-xl bg-teal-500/5 border border-teal-500/20 mb-5">
-                  <p className="text-xs text-muted-foreground">Outstanding Balance</p>
+                  <p className="text-xs text-muted-foreground">{t('customers_page.outstanding_balance')}</p>
                   <p className="text-2xl font-black text-teal-600">₹{customer.creditBalance.toLocaleString()}</p>
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-bold text-muted-foreground mb-1.5 block">Amount *</label>
+                    <label className="text-sm font-bold text-muted-foreground mb-1.5 block">{t('customer_detail_page.amount_required', 'Amount *')}</label>
                     <div className="relative">
                       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">₹</span>
                       <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)}
@@ -560,24 +560,24 @@ export default function CustomerProfilePage() {
                     </div>
                   </div>
                   <div>
-                    <label className="text-sm font-bold text-muted-foreground mb-1.5 block">Payment Method</label>
+                    <label className="text-sm font-bold text-muted-foreground mb-1.5 block">{t('customer_detail_page.payment_method', 'Payment Method')}</label>
                     <div className="grid grid-cols-2 gap-2">
                       {(['CASH','UPI','CARD','BANK_TRANSFER'] as const).map(m => (
                         <button key={m} onClick={() => setPayMethod(m)}
-                          className={`py-2.5 rounded-xl text-sm font-bold border transition-all ${payMethod === m ? 'bg-teal-500 text-white border-teal-500' : 'border-border text-muted-foreground hover:border-teal-500/30'}`}>
+                           className={`py-2.5 rounded-xl text-sm font-bold border transition-all ${payMethod === m ? 'bg-teal-500 text-white border-teal-500' : 'border-border text-muted-foreground hover:border-teal-500/30'}`}>
                           {m.replace('_', ' ')}
                         </button>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <label className="text-sm font-bold text-muted-foreground mb-1.5 block">Notes (optional)</label>
-                    <input value={payNotes} onChange={e => setPayNotes(e.target.value)} placeholder="Notes..."
+                    <label className="text-sm font-bold text-muted-foreground mb-1.5 block">{t('customers_page.notes_optional')}</label>
+                    <input value={payNotes} onChange={e => setPayNotes(e.target.value)} placeholder={t('customers_page.notes_optional')}
                       className="w-full px-4 py-2.5 rounded-xl border border-border bg-background/50 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50" />
                   </div>
                   <button onClick={handleRecordPayment} disabled={!payAmount || submittingPay}
                     className="w-full py-3.5 rounded-xl bg-gradient-to-r from-teal-500 to-teal-600 text-white font-black shadow-xl shadow-teal-500/25 flex items-center justify-center gap-2 disabled:opacity-50">
-                    {submittingPay ? <Loader2 className="w-5 h-5 animate-spin" /> : <><CheckCircle2 className="w-5 h-5" /> Confirm Payment</>}
+                    {submittingPay ? <Loader2 className="w-5 h-5 animate-spin" /> : <><CheckCircle2 className="w-5 h-5" /> {t('customers_page.confirm_payment')}</>}
                   </button>
                 </div>
               </div>
@@ -599,19 +599,19 @@ export default function CustomerProfilePage() {
                     <Trash2 className="w-6 h-6 text-red-500" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-black text-foreground">Delete Customer?</h2>
-                    <p className="text-sm text-muted-foreground">This cannot be undone</p>
+                    <h2 className="text-lg font-black text-foreground">{t('customers_page.delete_title')}</h2>
+                    <p className="text-sm text-muted-foreground">{t('customers_page.delete_subtitle')}</p>
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground mb-5">
-                  All data for <strong className="text-foreground">{customer.name}</strong> will be permanently deleted.
+                  {t('customer_detail_page.delete_confirm_body', 'All data for {{name}} will be permanently deleted.', { name: customer.name })}
                 </p>
                 <div className="flex gap-3">
                   <button onClick={() => setShowDelete(false)}
-                    className="flex-1 py-2.5 rounded-xl border border-border font-bold hover:bg-muted">Cancel</button>
+                    className="flex-1 py-2.5 rounded-xl border border-border font-bold hover:bg-muted">{t('common.cancel', 'Cancel')}</button>
                   <button onClick={handleDeleteCustomer} disabled={deletingCust}
                     className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold flex items-center justify-center gap-2 disabled:opacity-50">
-                    {deletingCust ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Delete'}
+                    {deletingCust ? <Loader2 className="w-4 h-4 animate-spin" /> : t('common.delete', 'Delete')}
                   </button>
                 </div>
               </div>

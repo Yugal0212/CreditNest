@@ -210,7 +210,7 @@ export default function CustomerHistory() {
                             <p className="font-bold text-foreground text-sm sm:text-base mb-1">Payment received</p>
                           )}
                           <p className="text-xs font-bold text-muted-foreground flex flex-wrap items-center gap-1.5 mt-0.5">
-                            <span className="font-mono text-[10px] bg-muted/80 px-1.5 py-0.5 rounded">ID: {item.id.slice(-6).toUpperCase()}</span>
+                            <span className="font-mono text-[10px] bg-muted/80 px-1.5 py-0.5 rounded">ID: {String(item.id).slice(-6).toUpperCase()}</span>
                             <Clock className="w-3 h-3" />{formatTime(item._date.toISOString())}
                             {item._type === 'payment' && 'paymentMethod' in item && (
                               <span className="ml-1 capitalize">· {(item as Payment).paymentMethod.replace('_', ' ')}</span>

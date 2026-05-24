@@ -155,7 +155,7 @@ const sendSMS = async (phone, message) => {
  * Send OTP SMS via Fast2SMS
  */
 const sendOTPSMS = async (phone, otp) => {
-  const message = `Your SCMS verification code is: ${otp}\n\nThis code expires in 10 minutes.\nDo not share this code with anyone.`;
+  const message = `Your CreditNest verification code is: ${otp}\n\nThis code expires in 5 minutes.\nDo not share this code with anyone.`;
   
   logger.info(`📱 Sending OTP ${otp} to ${phone}`);
   
@@ -166,7 +166,8 @@ const sendOTPSMS = async (phone, otp) => {
  * Send welcome SMS via Fast2SMS
  */
 const sendWelcomeSMS = async (phone, name, shopName) => {
-  const message = `Welcome ${name}! Your account at ${shopName} has been created successfully. Login at ${process.env.FRONTEND_URL || 'our app'} with your phone number.`;
+  const loginUrl = process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/login` : 'our app';
+  const message = `You have been registered on CreditNest by ${shopName}. Login at ${loginUrl} using your mobile or email.`;
   return sendSMS(phone, message);
 };
 

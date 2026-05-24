@@ -16,6 +16,7 @@ export default function AddProduct() {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
@@ -40,6 +41,25 @@ export default function AddProduct() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      if (!allowedMimeTypes.includes(file.type.toLowerCase())) {
+        toast({
+          title: 'Invalid File Type',
+          description: 'Only JPG, JPEG, PNG, and WEBP formats are allowed.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: 'File Too Large',
+          description: 'File size exceeds the 5MB limit.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       setFormData(prev => ({ ...prev, photo: file }));
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -84,18 +104,13 @@ export default function AddProduct() {
       if (formData.description) data.append('description', formData.description);
       if (formData.photo) data.append('photo', formData.photo);
 
-      console.log('Adding product:', {
-        productName: formData.productName,
-        category: formData.category,
-        unit: formData.unit,
-        pricePerUnit: formData.pricePerUnit,
-        stockStatus: formData.stockStatus,
+      setUploadProgress(1); // Start progress bar
+
+      const response = await shopOwnerAPI.addProduct(data, (progressEvent: any) => {
+        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        setUploadProgress(percentCompleted);
       });
-
-      const response = await shopOwnerAPI.addProduct(data);
       
-      console.log('Product added successfully:', response.data);
-
       toast({
         title: 'Success',
         description: 'Product added successfully',
@@ -104,20 +119,15 @@ export default function AddProduct() {
       router.push('/dashboard/shop_owner/products');
     } catch (error: any) {
       console.error('Add product error:', error);
-      console.error('Error response:', error.response?.data);
-      
       const errorMessage = error.response?.data?.message || 'Failed to add product';
-      const validationErrors = error.response?.data?.errors;
-      
       toast({
         title: 'Error',
-        description: validationErrors 
-          ? validationErrors.map((e: any) => e.message).join(', ')
-          : errorMessage,
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
       setLoading(false);
+      setUploadProgress(0); // Reset progress bar
     }
   };
 
@@ -163,13 +173,28 @@ export default function AddProduct() {
                 <Upload className="w-4 h-4" />
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
                   onChange={handleImageChange}
                   className="hidden"
                 />
               </label>
             </div>
             <p className="text-sm text-muted-foreground">Click to upload product photo</p>
+
+            {uploadProgress > 0 && (
+              <div className="w-full max-w-xs space-y-1">
+                <div className="flex justify-between text-xs font-semibold text-muted-foreground">
+                  <span>Uploading image...</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-primary transition-all duration-300 ease-out" 
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Product Name */}

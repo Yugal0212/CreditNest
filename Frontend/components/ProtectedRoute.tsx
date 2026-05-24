@@ -28,16 +28,9 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
     }
   }, [isMounted, isLoading, user, requiredRole, router]);
 
-  // Show loading state while hydrating or checking auth
+  // Show nothing while hydrating or checking auth (GlobalPreloader handles initial load)
   if (!isMounted || isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-4">
-          <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-accent to-primary mx-auto animate-pulse"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
+    return <div className="min-h-screen bg-background" />;
   }
 
   // Don't render if not authenticated

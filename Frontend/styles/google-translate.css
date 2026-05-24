@@ -1,102 +1,10 @@
 /**
- * Google Translate Widget Styles
- * Hides default Google Translate UI elements
+ * Google Translate Stylesheet (Legacy Placeholder)
+ * All dynamic widget translations have been replaced with a high-performance local static JSON i18n system.
+ * This stylesheet is maintained to keep layout import compatibility.
  */
 
-/* Hide default Google Translate toolbar and banner */
-.goog-te-banner-frame,
-.goog-te-balloon-frame,
-#goog-gt-tt,
-.goog-te-ftab-float,
-.goog-te-menu-value span:first-child {
-  display: none !important;
-}
-
-/* Hide Google Translate top frame */
-body {
-  top: 0 !important;
-  position: static !important;
-}
-
-/* Hide the default Google Translate dropdown */
-.goog-te-gadget {
-  display: none !important;
-}
-
-/* Prevent iframe from showing on body */
-body > .skiptranslate,
-body > .skiptranslate iframe {
-  display: none !important;
-}
-
-/* Hide the iframe container */
-#google_translate_element {
-  display: none !important;
-  position: absolute !important;
-  left: -9999px !important;
-  visibility: hidden !important;
-}
-
-/* Prevent layout shift when Google Translate loads */
-html.translated-ltr,
-html.translated-rtl {
-  margin-top: 0 !important;
-}
-
-/* Remove the Google Translate banner space */
-body.translated iframe.goog-te-banner-frame {
-  display: none !important;
-  height: 0 !important;
-  min-height: 0 !important;
-}
-
-/* Override Google Translate's body positioning */
-body.translated {
-  position: static !important;
-  top: 0 !important;
-}
-
-/* Hide powered by Google text */
-.goog-te-gadget .goog-te-gadget-simple .goog-te-menu-value span {
-  display: none !important;
-}
-
-/* Clean up any remaining Google branding */
-.goog-te-gadget img {
-  display: none !important;
-}
-
-.goog-logo-link {
-  display: none !important;
-}
-
-.goog-te-gadget-simple {
-  background-color: transparent !important;
-  border: none !important;
-}
-
-/* Fix Z-index issues with Google Translate */
-.skiptranslate {
-  z-index: -1 !important;
-}
-
-/* Prevent flickering during translation */
-body {
-  transition: none !important;
-}
-
-/* Remove any outline added by Google Translate */
-font[style*="vertical-align: inherit;"] {
-  vertical-align: inherit !important;
-}
-
-/* Cleanup Google Translate's injected styles */
-.translated-ltr .goog-text-highlight {
-  background-color: transparent !important;
-  box-shadow: none !important;
-}
-
-.translated-rtl .goog-text-highlight {
-  background-color: transparent !important;
-  box-shadow: none !important;
+#main-content-wrapper {
+  transition: opacity 0.2s ease-in-out;
+  opacity: 1;
 }

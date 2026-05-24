@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const logger = require('./utils/logger');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 const { apiLimiter } = require('./middleware/rateLimiter');
+const { languageMiddleware } = require('./middleware/language.middleware');
 
 // Import routes
 const authRoutes = require('./routes/auth.routes');
@@ -68,6 +69,9 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Language parsing (Accept-Language / x-language)
+app.use(languageMiddleware);
+
 // Serve static files (fallback for local uploads)
 const path = require('path');
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -75,13 +79,42 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 // Rate limiting (apply to all routes)
 app.use('/api/', apiLimiter);
 
-// Request logging in development
-if (process.env.NODE_ENV === 'development') {
-  app.use((req, res, next) => {
+// Request logging in development and WebSocket emission
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === 'development') {
     logger.info(`${req.method} ${req.path}`);
-    next();
-  });
-}
+  }
+  
+  // Emit to socket for admin diagnostics terminal and Save to DB
+  if (req.app.locals.io && !req.path.includes('/admin/system/health')) {
+    const logData = {
+      timestamp: new Date().toISOString(),
+      method: req.method,
+      path: req.path,
+      ip: req.ip,
+      userAgent: req.get('user-agent') || 'Unknown'
+    };
+    req.app.locals.io.emit('system_log', logData);
+    
+    // Save to DB asynchronously
+    const prisma = require('./config/database');
+    // Ensure we don't block the request
+    res.on('finish', () => {
+      prisma.apiLog.create({
+        data: {
+          method: req.method,
+          path: req.path,
+          ipAddress: req.ip,
+          userAgent: req.get('user-agent') || 'Unknown',
+          statusCode: res.statusCode,
+          responseTime: null, // Could calculate this if needed
+        }
+      }).catch(err => logger.error('Failed to save API log:', err));
+    });
+  }
+  
+  next();
+});
 
 // =====================================================
 // ROUTES

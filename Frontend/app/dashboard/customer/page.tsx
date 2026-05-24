@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { customerAPI } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 
 interface DashboardData {
   creditBalance: number;
@@ -31,6 +32,7 @@ interface DashboardData {
 export default function CustomerDashboard() {
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const isDark = theme === 'dark';
 
   const T = {
@@ -116,9 +118,9 @@ export default function CustomerDashboard() {
   const { creditBalance, totalPurchases, totalPaid, lastPurchaseDate, status, shop } = dashboardData;
 
   const kpiCards = [
-    { title: 'Total Credit Taken', value: `₹${(totalPurchases || 0).toLocaleString()}`,  icon: CreditCard,     accent: isDark ? '#818cf8' : '#1A5276', accentBg: isDark ? 'rgba(129, 140, 248, 0.15)' : '#EAF2FB', sub: 'All time' },
-    { title: 'Amount Paid',        value: `₹${(totalPaid || 0).toLocaleString()}`,        icon: CheckCircle2,   accent: isDark ? '#34d399' : '#1E8449', accentBg: isDark ? 'rgba(52, 211, 153, 0.15)' : '#EDFAF3', sub: 'Cleared' },
-    { title: 'Balance Due',        value: `₹${(creditBalance || 0).toLocaleString()}`,    icon: IndianRupee,    accent: creditBalance > 0 ? '#f87171' : (isDark ? '#34d399' : '#1E8449'), accentBg: creditBalance > 0 ? (isDark ? 'rgba(239, 68, 68, 0.15)' : '#FADBD8') : (isDark ? 'rgba(52, 211, 153, 0.15)' : '#EDFAF3'), sub: 'Outstanding' },
+    { title: t('customer_dashboard.total_transactions'), value: `₹${(totalPurchases || 0).toLocaleString()}`,  icon: CreditCard,     accent: isDark ? '#818cf8' : '#1A5276', accentBg: isDark ? 'rgba(129, 140, 248, 0.15)' : '#EAF2FB', sub: t('admin_dashboard.registered') },
+    { title: t('customer_dashboard.last_payment'),        value: `₹${(totalPaid || 0).toLocaleString()}`,        icon: CheckCircle2,   accent: isDark ? '#34d399' : '#1E8449', accentBg: isDark ? 'rgba(52, 211, 153, 0.15)' : '#EDFAF3', sub: t('common.success') },
+    { title: t('customer_dashboard.my_outstanding'),    value: `₹${(creditBalance || 0).toLocaleString()}`,    icon: IndianRupee,    accent: creditBalance > 0 ? '#f87171' : (isDark ? '#34d399' : '#1E8449'), accentBg: creditBalance > 0 ? (isDark ? 'rgba(239, 68, 68, 0.15)' : '#FADBD8') : (isDark ? 'rgba(52, 211, 153, 0.15)' : '#EDFAF3'), sub: t('customer_dashboard.my_outstanding') },
   ];
 
   return (
@@ -130,10 +132,10 @@ export default function CustomerDashboard() {
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
             <div>
               <h1 style={{ fontSize: '26px', fontWeight: 800, color: isDark ? '#818cf8' : '#1A5276', letterSpacing: '-0.03em', lineHeight: 1.1, margin: 0 }}>
-                My Credit Account
+                {t('customer_dashboard.title')}
               </h1>
               <p style={{ color: T.textSub, marginTop: '6px', fontSize: '14px' }}>
-                Welcome, <strong style={{ color: T.text, fontWeight: 700 }}>{user?.name ?? 'Customer'}</strong> — track your credit balance below.
+                {t('customer_dashboard.welcome')} <strong style={{ color: T.text, fontWeight: 700 }}>{user?.name ?? 'Customer'}</strong> — {t('customer_dashboard.subtitle')}
               </p>
             </div>
             {creditBalance > 0 && (
@@ -146,7 +148,7 @@ export default function CustomerDashboard() {
 
           {/* ── KPI Cards ───────────────────────────────────── */}
           <div>
-            <p style={{ fontSize: '13px', fontWeight: 700, color: T.textSub, letterSpacing: '0.10em', textTransform: 'uppercase', marginBottom: '12px' }}>Credit Summary</p>
+            <p style={{ fontSize: '13px', fontWeight: 700, color: T.textSub, letterSpacing: '0.10em', textTransform: 'uppercase', marginBottom: '12px' }}>{t('admin_dashboard.key_metrics')}</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
               {kpiCards.map((k, i) => {
                 const Icon = k.icon;
@@ -200,7 +202,7 @@ export default function CustomerDashboard() {
                 <div style={{ width: '28px', height: '28px', borderRadius: '7px', background: isDark ? 'rgba(129, 140, 248, 0.15)' : '#EAF2FB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Store size={14} color={isDark ? '#818cf8' : '#1A5276'} strokeWidth={2} />
                 </div>
-                <h2 style={{ fontSize: '15px', fontWeight: 700, color: isDark ? '#818cf8' : '#1A5276', margin: 0 }}>My Shop</h2>
+                <h2 style={{ fontSize: '15px', fontWeight: 700, color: isDark ? '#818cf8' : '#1A5276', margin: 0 }}>{t('roles.SHOP_OWNER')}</h2>
               </div>
 
               <div style={{ padding: '20px 22px' }}>
@@ -239,7 +241,7 @@ export default function CustomerDashboard() {
                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = isDark ? 'rgba(129, 140, 248, 0.15)' : '#EAF2FB'}
                   >
                     <Package size={15} color={isDark ? '#818cf8' : '#1A5276'} strokeWidth={2} />
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: isDark ? '#818cf8' : '#1A5276' }}>Browse Products</span>
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: isDark ? '#818cf8' : '#1A5276' }}>{t('sidebar.items.products')}</span>
                     <ChevronRight size={14} color={T.textSub} strokeWidth={2} />
                   </div>
                 </Link>
@@ -253,10 +255,10 @@ export default function CustomerDashboard() {
                   <div style={{ width: '28px', height: '28px', borderRadius: '7px', background: isDark ? 'rgba(129, 140, 248, 0.15)' : '#EAF2FB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Clock size={14} color={isDark ? '#818cf8' : '#1A5276'} strokeWidth={2} />
                   </div>
-                  <h2 style={{ fontSize: '15px', fontWeight: 700, color: isDark ? '#818cf8' : '#1A5276', margin: 0 }}>Recent Activity</h2>
+                  <h2 style={{ fontSize: '15px', fontWeight: 700, color: isDark ? '#818cf8' : '#1A5276', margin: 0 }}>{t('customer_dashboard.recent_purchases')}</h2>
                 </div>
                 <Link href="/dashboard/customer/history" style={{ fontSize: '12px', fontWeight: 700, color: isDark ? '#818cf8' : '#1A5276', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                  View All <ChevronRight size={13} color={isDark ? '#818cf8' : '#1A5276'} />
+                  {t('customer_dashboard.view_history')} <ChevronRight size={13} color={isDark ? '#818cf8' : '#1A5276'} />
                 </Link>
               </div>
 

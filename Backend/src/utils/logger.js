@@ -8,7 +8,7 @@ const logger = winston.createLogger({
     winston.format.splat(),
     winston.format.json()
   ),
-  defaultMeta: { service: 'scms-backend' },
+  defaultMeta: { service: 'creditnest-backend' },
   transports: [
     // Write all logs to console
     new winston.transports.Console({

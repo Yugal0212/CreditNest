@@ -9,38 +9,40 @@ import './globals.css'
 import '@/styles/google-translate.css'
 import { link } from 'fs'
 
-import PWAInstallBanner  from '@/components/PWAInstallBanner';
+import PwaManager from '@/components/pwa/PwaManager';
 import OfflineIndicator  from '@/components/OfflineIndicator';
+import { GlobalPreloader } from '@/components/GlobalPreloader';
 
 const _geist = Geist({ subsets: ['latin'] })
 const _geistMono = Geist_Mono({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'SCMS - Smart Credit Management System',
-  description: 'Modern smart credit management system for Indian Kirana stores & canteens',
-  keywords: ['SCMS', 'Credit Management', 'Kirana', 'Shop', 'India'],
+  title: 'CreditNest - Kirana & Canteen Credit Management System',
+  description: 'Modern credit management system for Indian Kirana stores & canteens',
+  keywords: ['CreditNest', 'Credit Management', 'Kirana', 'Shop', 'India', 'Canteen'],
   icons: {
     icon: [
-      { url: '/icon-light-32x32.png', media: '(prefers-color-scheme: light)' },
-      { url: '/icon-dark-32x32.png', media: '(prefers-color-scheme: dark)' },
-      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/CreditNest.png', type: 'image/png' },
     ],
-    apple: '/apple-icon.png',
+    apple: '/CreditNest.png',
   },
   manifest: '/manifest.json',
-  themeColor: '#1A5276',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Smart Credit',
-    startupImage: '/icons/icon-512x512.png',
+    title: 'CreditNest',
+    startupImage: '/CreditNest.png',
   },
   other: {
     'msapplication-TileColor':  '#0D2235',
-    'msapplication-TileImage':  '/icons/icon-144x144.png',
+    'msapplication-TileImage':  '/CreditNest.png',
     'mobile-web-app-capable':   'yes',
   },
 }
+
+export const viewport = {
+  themeColor: '#1A5276',
+};
 
 export default function RootLayout({
   children,
@@ -50,15 +52,35 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var savedLang = localStorage.getItem('language');
+                  if (savedLang && ['en', 'hi', 'gu'].indexOf(savedLang) !== -1) {
+                    document.documentElement.setAttribute('data-lang', savedLang);
+                  }
+                } catch (e) {}
+              })();
+            `
+          }}
+        />
         <meta name="theme-color" content="#ffffff" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="SCMS" />
-        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-        <link rel="apple-touch-icon" href="/apple-icon.png" />
+        <meta name="apple-mobile-web-app-title" content="CreditNest" />
+        <link rel="icon" href="/CreditNest.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/CreditNest.png" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
         <link rel="shortcut icon" href="/icons/icon-96x96.png" />
+        
+        {/* iOS Splash Screens */}
+        <link rel="apple-touch-startup-image" href="/CreditNest.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)" />
+        <link rel="apple-touch-startup-image" href="/CreditNest.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)" />
+        <link rel="apple-touch-startup-image" href="/CreditNest.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)" />
+        <link rel="apple-touch-startup-image" href="/CreditNest.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)" />
         <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
       </head>
       <body className="font-sans antialiased bg-background text-foreground transition-colors duration-300">
@@ -67,13 +89,14 @@ export default function RootLayout({
           <AuthProvider>
             <NotificationProvider>
               <LanguageProvider>
+                <GlobalPreloader />
                 {children}
                 <Analytics />
               </LanguageProvider>
             </NotificationProvider>
           </AuthProvider>
         </ThemeProvider>
-        <PWAInstallBanner />
+        <PwaManager />
       </body>
     </html>
   )

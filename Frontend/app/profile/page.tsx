@@ -36,7 +36,7 @@ export default function ProfilePage() {
         address: '123 Main Street',
         city: 'New York',
         state: 'NY',
-        company: 'SCMS Inc',
+        company: 'CreditNest',
       });
     }
   }, [isAuthenticated, user, router]);

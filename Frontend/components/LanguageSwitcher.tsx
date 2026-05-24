@@ -5,7 +5,11 @@ import { useLanguage, type Language } from '@/contexts/LanguageContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Globe, Languages, Loader2, Sparkles, Check } from 'lucide-react';
 
-export function LanguageSwitcher() {
+interface LanguageSwitcherProps {
+  dropDirection?: 'up' | 'down';
+}
+
+export function LanguageSwitcher({ dropDirection = 'down' }: LanguageSwitcherProps) {
   const { language, setLanguage, isLoaded, isChanging } = useLanguage();
   const [isOpen, setIsOpen] = React.useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
@@ -38,32 +42,23 @@ export function LanguageSwitcher() {
     setIsOpen(false);
   };
 
-  const isButtonDisabled = !isLoaded || isChanging;
+  const isButtonDisabled = isChanging;
 
   return (
     <div ref={dropdownRef} className="relative z-50">
       <motion.button
-        onClick={() => !isButtonDisabled && setIsOpen(!isOpen)}
+        onClick={() => !isButtonDisabled && setIsOpen((prev) => !prev)}
         whileHover={{ scale: isButtonDisabled ? 1 : 1.05 }}
         whileTap={{ scale: isButtonDisabled ? 1 : 0.95 }}
-        className="relative w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-to-br from-primary to-indigo-500 hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed group overflow-hidden"
+        className={`w-[34px] h-[34px] rounded-full border-none flex items-center justify-center transition-all duration-200 bg-slate-100 dark:bg-slate-800 ${!isButtonDisabled ? 'hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
         aria-label="Change language"
         disabled={isButtonDisabled}
       >
-        {/* Animated shimmer effect */}
-        {!isChanging && (
-          <motion.div
-            animate={{ x: ['-100%', '100%'] }}
-            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
-          />
-        )}
-        
         {/* Icon */}
         {!isLoaded || isChanging ? (
-          <Loader2 className="w-4 h-4 text-white animate-spin relative z-10" />
+          <Loader2 size={16} strokeWidth={2} className="animate-spin text-slate-500" />
         ) : (
-          <Globe className="w-4 h-4 text-white relative z-10 group-hover:rotate-12 transition-transform" />
+          <Globe size={16} strokeWidth={2} className="text-slate-500 dark:text-slate-400 group-hover:rotate-12 transition-transform" />
         )}
       </motion.button>
 
@@ -74,7 +69,7 @@ export function LanguageSwitcher() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.9 }}
             transition={{ duration: 0.2, type: 'spring', stiffness: 300, damping: 25 }}
-            className="absolute right-0 top-full mt-2 w-56 bg-card text-card-foreground border border-border rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl"
+            className={`absolute right-0 ${dropDirection === 'up' ? 'bottom-full mb-2 origin-bottom-right' : 'top-full mt-2 origin-top-right'} w-48 sm:w-56 bg-card text-card-foreground border border-border rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl`}
             style={{ zIndex: 9999 }}
           >
             {/* Header */}
@@ -89,7 +84,7 @@ export function LanguageSwitcher() {
             <div className="py-1">
               {languages.map((lang, idx) => {
                 const isActive = language === lang.code;
-                const isOptionDisabled = !isLoaded || isChanging;
+                const isOptionDisabled = isChanging;
                 
                 return (
                   <motion.button
@@ -156,7 +151,7 @@ export function LanguageSwitcher() {
                 ) : (
                   <>
                     <Languages className="w-3 h-3" />
-                    <p className="leading-tight font-medium">Powered by Google Translate</p>
+                    <p className="leading-tight font-medium">Multi-Language Engine</p>
                   </>
                 )}
               </div>

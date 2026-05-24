@@ -100,7 +100,7 @@ const displaySummary = async () => {
     logger.info('🔐 DEFAULT CREDENTIALS:');
     logger.info('================================');
     logger.info('Admin:');
-    logger.info('  Email: admin@scms.com');
+    logger.info('  Email: admin@creditnest.com');
     logger.info('  Password: Admin@123');
     logger.info('');
     logger.info('Shop Owners:');

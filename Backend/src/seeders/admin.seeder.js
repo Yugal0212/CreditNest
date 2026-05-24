@@ -5,7 +5,7 @@ const logger = require('../utils/logger');
 
 /**
  * Seed admin user
- * Email: admin@scms.com
+ * Email: admin@creditnest.com
  * Password: Admin@123
  */
 const seedAdmin = async () => {
@@ -15,7 +15,7 @@ const seedAdmin = async () => {
     // Check if admin already exists
     const existingAdmin = await prisma.user.findFirst({
       where: {
-        email: 'admin@scms.com',
+        email: 'admin@creditnest.com',
         role: 'ADMIN',
       },
     });
@@ -27,7 +27,7 @@ const seedAdmin = async () => {
       // Create admin user
       await prisma.user.create({
         data: {
-          email: 'admin@scms.com',
+          email: 'admin@creditnest.com',
           role: 'ADMIN',
           admin: {
             create: {
@@ -71,11 +71,11 @@ const seedAdmin = async () => {
     }
 
     logger.info('✅ Admin user created successfully');
-    logger.info('📧 Email: admin@scms.com');
+    logger.info('📧 Email: admin@creditnest.com');
     logger.info('🔑 Password: Admin@123');
     logger.info('⚠️  Please change the password after first login!');
 
-    return adminUser;
+    return;
   } catch (error) {
     logger.error('❌ Admin seeder error:', error);
     throw error;

@@ -11,6 +11,34 @@ const withPWA = require('next-pwa')({
   reloadOnOnline: true,
   runtimeCaching: [
     {
+      urlPattern: /^https?:\/\/.*\/(api)\/.*/i,
+      handler: 'NetworkFirst',
+      options: {
+        cacheName: 'scms-api-cache',
+        expiration: { maxEntries: 200, maxAgeSeconds: 86400 },
+        networkTimeoutSeconds: 10,
+        cacheableResponse: { statuses: [0, 200] },
+      },
+    },
+    {
+      urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/i,
+      handler: 'StaleWhileRevalidate',
+      options: {
+        cacheName: 'scms-image-cache',
+        expiration: { maxEntries: 500, maxAgeSeconds: 30 * 24 * 60 * 60 }, // 30 days
+        cacheableResponse: { statuses: [0, 200] },
+      },
+    },
+    {
+      urlPattern: /\.(?:js|css|woff2?|eot|ttf|otf)$/i,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'scms-static-resources',
+        expiration: { maxEntries: 200, maxAgeSeconds: 365 * 24 * 60 * 60 }, // 1 year
+        cacheableResponse: { statuses: [0, 200] },
+      },
+    },
+    {
       urlPattern: /^https?.*/,
       handler: 'NetworkFirst',
       options: {

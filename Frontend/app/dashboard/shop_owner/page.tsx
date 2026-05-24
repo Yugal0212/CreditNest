@@ -1,6 +1,7 @@
 'use client';
 
 import { DashboardLayout } from '@/components/DashboardLayout';
+import { DashboardLayoutSkeleton } from '@/components/skeletons/DashboardSkeleton';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -13,6 +14,8 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { shopOwnerAPI } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useTranslation } from 'react-i18next';
 
 /* ── Interfaces ─────────────────────────────────────────────── */
 interface DashboardStats {
@@ -27,19 +30,21 @@ interface DashboardStats {
 export default function ShopOwnerDashboard() {
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { language } = useLanguage();
+  const { t } = useTranslation();
   const isDark = theme === 'dark';
 
   /* ── Theme tokens ─────────────────────────────────────────── */
   const T = {
-    card:        isDark ? '#1E293B' : '#FFFFFF',
-    cardBorder:  isDark ? '#334155' : '#E2E8F0',
-    cardShadow:  isDark ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
-    text:        isDark ? '#F1F5F9' : '#0F172A',
-    textSub:     isDark ? '#94A3B8' : '#64748B',
-    textMuted:   isDark ? '#64748B' : '#94A3B8',
-    divider:     isDark ? '#334155' : '#F1F5F9',
-    innerBg:     isDark ? '#0F172A' : '#F8FAFC',
-    innerBorder: isDark ? '#1E293B' : '#E2E8F0',
+    card:        isDark ? '#0f172a' : '#FFFFFF',
+    cardBorder:  isDark ? 'rgba(255,255,255,0.08)' : '#e8eef6',
+    cardShadow:  isDark ? '0 1px 3px rgba(0,0,0,0.5)' : '0 1px 4px rgba(0,0,0,0.04)',
+    text:        isDark ? '#F1F5F9' : '#0f172a',
+    textSub:     isDark ? '#64748B' : '#64748b',
+    textMuted:   isDark ? '#475569' : '#94a3b8',
+    divider:     isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9',
+    innerBg:     isDark ? '#0b1222' : '#f8fafc',
+    innerBorder: isDark ? 'rgba(255,255,255,0.06)' : '#e8eef6',
   };
 
   const card: React.CSSProperties = {
@@ -60,7 +65,7 @@ export default function ShopOwnerDashboard() {
   useEffect(() => {
     fetchDashboardStats();
     fetchRequests();
-  }, []);
+  }, [language]);
 
   const fetchRequests = async () => {
     setRequestsLoading(true);
@@ -81,11 +86,11 @@ export default function ShopOwnerDashboard() {
       const errorCode = error?.code;
       const serverMessage = error?.response?.data?.message;
       if (error?.response) console.error('Error response:', error.response);
-      let description = serverMessage || 'Failed to load pending requests';
+      let description = serverMessage || t('seller_dashboard.err_load_requests', 'Failed to load pending requests');
       if (!serverMessage && (errorCode === 'ERR_NETWORK' || errorCode === 'ECONNABORTED')) {
-        description = 'Cannot reach server. Please check backend connection and try again.';
+        description = t('seller_dashboard.err_network', 'Cannot reach server. Please check backend connection and try again.');
       }
-      toast({ title: 'Error', description, variant: 'destructive' });
+      toast({ title: t('common.error', 'Error'), description, variant: 'destructive' });
     } finally {
       setRequestsLoading(false);
     }
@@ -111,7 +116,7 @@ export default function ShopOwnerDashboard() {
     if (processingRequestId) return;
     const selected = selectedItems[id] || [];
     if (selected.length === 0) {
-      toast({ title: 'No items selected', description: 'Please select at least one product to approve', variant: 'destructive' });
+      toast({ title: t('seller_dashboard.title_no_items', 'No items selected'), description: t('seller_dashboard.desc_no_items', 'Please select at least one product to approve'), variant: 'destructive' });
       return;
     }
     const request = requests.find(r => r.id === id);
@@ -124,15 +129,15 @@ export default function ShopOwnerDashboard() {
     try {
       const response = await shopOwnerAPI.approveOrder(id, selectedIndices);
       console.log('Approve response:', response.data);
-      const approvalType = selectedProducts.length === request.items.length ? 'All products' : `${selectedProducts.length} product(s)`;
-      toast({ title: '✅ Approved', description: `${approvalType} approved. Credit added to customer account.` });
+      const approvalType = selectedProducts.length === request.items.length ? t('seller_dashboard.all_products', 'All products') : t('seller_dashboard.product_count', '{{count}} product(s)', { count: selectedProducts.length });
+      toast({ title: `✅ ${t('seller_dashboard.approved', 'Approved')}`, description: t('seller_dashboard.approved_desc', '{{type}} approved. Credit added to customer account.', { type: approvalType }) });
       await Promise.all([fetchRequests(), fetchDashboardStats()]);
     } catch (err: any) {
       console.error('Error approving order:', err);
-      let errorMsg = 'Failed to approve request';
+      let errorMsg = t('seller_dashboard.err_approve', 'Failed to approve request');
       if (err.response?.data?.message) errorMsg = err.response.data.message;
       if (err.response?.data?.debug) { console.error('Debug info:', err.response.data.debug); errorMsg += ` (${err.response.data.debug})`; }
-      toast({ title: 'Error', description: errorMsg, variant: 'destructive' });
+      toast({ title: t('common.error', 'Error'), description: errorMsg, variant: 'destructive' });
     } finally { setProcessingRequestId(null); }
   };
 
@@ -143,11 +148,11 @@ export default function ShopOwnerDashboard() {
     try {
       const response = await shopOwnerAPI.rejectOrder(id);
       console.log('Reject response:', response.data);
-      toast({ title: '❌ Rejected', description: 'Order request has been rejected' });
+      toast({ title: `❌ ${t('seller_dashboard.rejected', 'Rejected')}`, description: t('seller_dashboard.rejected_desc', 'Order request has been rejected') });
       await fetchRequests();
     } catch (err: any) {
       console.error('Error rejecting order:', err);
-      toast({ title: 'Error', description: err.response?.data?.message || 'Failed to reject request', variant: 'destructive' });
+      toast({ title: t('common.error', 'Error'), description: err.response?.data?.message || t('seller_dashboard.err_reject', 'Failed to reject request'), variant: 'destructive' });
     } finally { setProcessingRequestId(null); }
   };
 
@@ -156,33 +161,28 @@ export default function ShopOwnerDashboard() {
       const response = await shopOwnerAPI.getDashboardStats();
       setStats(response.data.stats);
     } catch (error: any) {
-      toast({ title: 'Error', description: error.response?.data?.message || 'Failed to load dashboard', variant: 'destructive' });
+      toast({ title: t('common.error', 'Error'), description: error.response?.data?.message || t('seller_dashboard.err_load_dashboard', 'Failed to load dashboard'), variant: 'destructive' });
     } finally { setIsLoading(false); }
   };
 
   const statsConfig = stats ? [
-    { title: 'Credit Outstanding', value: `₹${(stats.totalCreditOutstanding || 0).toLocaleString()}`, sub: `${stats.totalCustomers || 0} total customers`, icon: IndianRupee, accent: '#CB4335', accentBg: isDark ? 'rgba(203, 67, 53, 0.15)' : '#FADBD8' },
-    { title: 'Active Customers',   value: (stats.activeCustomers || 0).toString(),                      sub: `${stats.overdueCustomers || 0} overdue`,       icon: Users,        accent: isDark ? '#818cf8' : '#1A5276', accentBg: isDark ? 'rgba(129, 140, 248, 0.15)' : '#EAF2FB' },
-    { title: 'Pending Payments',   value: `₹${(stats.pendingPayments || 0).toLocaleString()}`,          sub: stats.pendingPayments > 0 ? 'Needs attention' : 'All cleared', icon: Bell, accent: '#D4A017', accentBg: isDark ? 'rgba(212, 160, 23, 0.15)' : '#FEF9ED' },
-    { title: 'This Month Sales',   value: `₹${(stats.thisMonthSales || 0).toLocaleString()}`,           sub: 'Current month revenue', icon: TrendingUp, accent: '#1E8449', accentBg: isDark ? 'rgba(30, 132, 73, 0.15)' : '#EDFAF3' },
+    { title: t('seller_dashboard.outstanding_dues'), value: `₹${(stats.totalCreditOutstanding || 0).toLocaleString()}`, sub: `${stats.totalCustomers || 0} ${t('admin_dashboard.customers').toLowerCase()}`, icon: IndianRupee, accent: '#ef4444', gradient: 'linear-gradient(135deg, #ef4444, #f87171)' },
+    { title: t('seller_dashboard.active_customers'),   value: (stats.activeCustomers || 0).toString(),                      sub: t('seller_dashboard.overdue_count', '{{count}} overdue', { count: stats.overdueCustomers || 0 }),       icon: Users,        accent: '#3b82f6', gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)' },
+    { title: t('seller_dashboard.pending_orders'),   value: `₹${(stats.pendingPayments || 0).toLocaleString()}`,          sub: stats.pendingPayments > 0 ? t('common.loading') : t('common.success'), icon: Bell, accent: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)' },
+    { title: t('admin_dashboard.this_month'),   value: `₹${(stats.thisMonthSales || 0).toLocaleString()}`,           sub: t('admin_dashboard.this_month'), icon: TrendingUp, accent: '#10b981', gradient: 'linear-gradient(135deg, #10b981, #34d399)' },
   ] : [];
 
   const quickLinks = [
-    { label: 'Customers',    sub: 'View and manage all customers',  icon: Users,       href: '/dashboard/shop_owner/customers' },
-    { label: 'Products',     sub: 'Add or update your inventory',   icon: Package,     href: '/dashboard/shop_owner/products'  },
-    { label: 'Orders',       sub: 'Track and fulfill orders',       icon: ShoppingBag, href: '/dashboard/shop_owner/orders'    },
+    { label: t('sidebar.items.customers'),    sub: t('admin_dashboard.manage_users_sub'),  icon: Users,       href: '/dashboard/shop_owner/customers', gradient: 'linear-gradient(135deg, #10b981, #34d399)' },
+    { label: t('sidebar.items.products'),     sub: t('seller_dashboard.subtitle'),   icon: Package,     href: '/dashboard/shop_owner/products', gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)' },
+    { label: t('sidebar.items.orders'),       sub: t('seller_dashboard.recent_orders'),       icon: ShoppingBag, href: '/dashboard/shop_owner/orders', gradient: 'linear-gradient(135deg, #8b5cf6, #a78bfa)'    },
   ];
 
   if (isLoading) {
     return (
       <ProtectedRoute requiredRole="SHOP_OWNER">
         <DashboardLayout>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ width: '36px', height: '36px', border: `3px solid ${isDark ? 'rgba(129, 140, 248, 0.1)' : '#EAF2FB'}`, borderTopColor: isDark ? '#818cf8' : '#1A5276', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-              <p style={{ color: T.textSub, fontSize: '13px' }}>Loading dashboard…</p>
-            </div>
-          </div>
+          <DashboardLayoutSkeleton />
         </DashboardLayout>
       </ProtectedRoute>
     );
@@ -197,21 +197,22 @@ export default function ShopOwnerDashboard() {
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
             <div>
               <h1 style={{ fontSize: '26px', fontWeight: 800, color: isDark ? '#818cf8' : '#1A5276', letterSpacing: '-0.03em', lineHeight: 1.1, margin: 0 }}>
-                Shop Dashboard
+                {t('seller_dashboard.title')}
               </h1>
               <p style={{ color: T.textSub, marginTop: '6px', fontSize: '14px' }}>
-                Welcome back, <strong style={{ color: T.text, fontWeight: 700 }}>{user?.name ?? 'Owner'}</strong> — your shop is live.
+                {t('seller_dashboard.welcome')} <strong style={{ color: T.text, fontWeight: 700 }}>{user?.name ?? 'Owner'}</strong> {t('seller_dashboard.shop_live', '— your shop is live.')}
               </p>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: isDark ? 'rgba(30, 132, 73, 0.15)' : '#EDFAF3', border: `1px solid ${isDark ? 'rgba(30, 132, 73, 0.3)' : '#BEE5C8'}`, borderRadius: '10px' }}>
-              <Store size={14} color={isDark ? '#81c784' : '#1E8449'} strokeWidth={2.5} />
-              <span style={{ fontSize: '13px', fontWeight: 600, color: isDark ? '#81c784' : '#1E8449' }}>Shop is Open</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 14px', background: isDark ? 'rgba(16, 185, 129, 0.15)' : '#FFFFFF', border: `1px solid ${isDark ? 'rgba(16, 185, 129, 0.3)' : '#A7F3D0'}`, borderRadius: '10px', boxShadow: isDark ? 'none' : '0 2px 4px rgba(16,185,129,0.1)' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981' }} />
+              <Store size={14} color="#10B981" strokeWidth={2.5} />
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#10B981' }}>{t('seller_dashboard.shop_open', 'Shop is Open')}</span>
             </div>
           </div>
 
           {/* ── KPI Stats ─────────────────────────────────────── */}
           <div>
-            <p style={{ fontSize: '13px', fontWeight: 700, color: '#8A9BB0', letterSpacing: '0.10em', textTransform: 'uppercase', marginBottom: '12px' }}>Key Metrics</p>
+            <p style={{ fontSize: '13px', fontWeight: 700, color: '#8A9BB0', letterSpacing: '0.10em', textTransform: 'uppercase', marginBottom: '12px' }}>{t('admin_dashboard.key_metrics')}</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '16px' }}>
               {statsConfig.map((s, i) => {
                 const Icon = s.icon;
@@ -220,31 +221,43 @@ export default function ShopOwnerDashboard() {
                     key={i}
                     style={{
                 ...card,
-                border: 'none',
-                padding: '20px',
-                borderLeft: `4px solid ${s.accent}`,
-                borderTop: `1px solid ${T.cardBorder}`,
-                borderRight: `1px solid ${T.cardBorder}`,
-                borderBottom: `1px solid ${T.cardBorder}`,
+                border: `1.5px solid ${T.cardBorder}`,
+                padding: '24px 20px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '14px',
-                transition: 'box-shadow 0.2s, transform 0.2s'
+                gap: '16px',
+                transition: 'box-shadow 0.2s, transform 0.2s',
+                borderRadius: '14px',
+                position: 'relative',
+                overflow: 'hidden',
+                background: T.card,
               }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 24px rgba(26,82,118,0.12)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = card.boxShadow as string; (e.currentTarget as HTMLElement).style.transform = 'none'; }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 28px rgba(0,0,0,0.08)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = T.cardShadow as string; (e.currentTarget as HTMLElement).style.transform = 'none'; }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: s.accentBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Icon size={18} color={s.accent} strokeWidth={2} />
+                    {/* Top Gradient Stripe */}
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: s.gradient }} />
+                    {/* Corner Glow */}
+                    <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '80px', height: '80px', background: s.accent, opacity: isDark ? 0.1 : 0.05, filter: 'blur(20px)', borderRadius: '50%' }} />
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 1 }}>
+                      {/* Icon Badge Top Left */}
+                      <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: isDark ? `rgba(${parseInt(s.accent.slice(1,3),16)},${parseInt(s.accent.slice(3,5),16)},${parseInt(s.accent.slice(5,7),16)},0.15)` : `rgba(${parseInt(s.accent.slice(1,3),16)},${parseInt(s.accent.slice(3,5),16)},${parseInt(s.accent.slice(5,7),16)},0.08)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon size={20} color={s.accent} strokeWidth={2.5} />
                       </div>
-                      <span style={{ fontSize: '11px', fontWeight: 600, color: T.textSub, background: T.innerBg, border: `1px solid ${T.innerBorder}`, padding: '3px 8px', borderRadius: '999px' }}>
+                      {/* Status Chip Top Right */}
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: s.accent, background: isDark ? `rgba(${parseInt(s.accent.slice(1,3),16)},${parseInt(s.accent.slice(3,5),16)},${parseInt(s.accent.slice(5,7),16)},0.15)` : `rgba(${parseInt(s.accent.slice(1,3),16)},${parseInt(s.accent.slice(3,5),16)},${parseInt(s.accent.slice(5,7),16)},0.08)`, padding: '4px 10px', borderRadius: '999px' }}>
                         {s.sub}
                       </span>
                     </div>
-                    <div>
-                      <p style={{ fontSize: '28px', fontWeight: 800, color: isDark ? s.accent : '#1A5276', letterSpacing: '-0.03em', lineHeight: 1, margin: 0 }}>{s.value}</p>
-                      <p style={{ fontSize: '13px', color: T.textSub, fontWeight: 500, marginTop: '4px' }}>{s.title}</p>
+                    <div style={{ marginTop: '8px', position: 'relative', zIndex: 1 }}>
+                      <p style={{ fontSize: '28px', fontWeight: 700, color: T.text, letterSpacing: '-0.03em', lineHeight: 1, margin: 0 }}>{s.value}</p>
+                      <p style={{ fontSize: '12px', color: '#64748b', fontWeight: 500, marginTop: '6px' }}>{s.title}</p>
+                    </div>
+
+                    {/* Thin Progress Bar at Bottom */}
+                    <div style={{ width: '100%', height: '3px', background: '#f1f5f9', borderRadius: '2px', overflow: 'hidden', marginTop: 'auto' }}>
+                      <div style={{ width: `${Math.max(10, Math.random() * 90)}%`, height: '100%', background: s.accent }} />
                     </div>
                   </div>
                 );
@@ -254,25 +267,39 @@ export default function ShopOwnerDashboard() {
 
           {/* ── Quick Links ───────────────────────────────────── */}
           <div>
-            <p style={{ fontSize: '13px', fontWeight: 700, color: '#8A9BB0', letterSpacing: '0.10em', textTransform: 'uppercase', marginBottom: '12px' }}>Quick Access</p>
+            <p style={{ fontSize: '13px', fontWeight: 700, color: '#8A9BB0', letterSpacing: '0.10em', textTransform: 'uppercase', marginBottom: '12px' }}>{t('admin_dashboard.quick_actions')}</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
               {quickLinks.map((link, i) => {
                 const Icon = link.icon;
                 return (
                   <Link key={i} href={link.href} style={{ textDecoration: 'none' }}>
                     <div
-                      style={{ ...card, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: '14px', cursor: 'pointer', transition: 'all 0.15s' }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = isDark ? '0 4px 20px rgba(0,0,0,0.4)' : '0 4px 20px rgba(26,82,118,0.10)'; (e.currentTarget as HTMLElement).style.borderColor = isDark ? '#475569' : '#C5D9EC'; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = card.boxShadow as string; (e.currentTarget as HTMLElement).style.borderColor = T.cardBorder; }}
+                      style={{ ...card, padding: '20px', borderRadius: '14px', border: `1.5px solid ${T.cardBorder}`, display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', transition: 'all 0.2s', background: T.card }}
+                      onMouseEnter={e => { 
+                        (e.currentTarget as HTMLElement).style.boxShadow = isDark ? '0 8px 30px rgba(0,0,0,0.4)' : '0 10px 40px rgba(0,0,0,0.08)'; 
+                        (e.currentTarget as HTMLElement).style.borderColor = '#6366f1'; 
+                        (e.currentTarget as HTMLElement).style.transform = 'translateY(-4px)';
+                        const arrowBtn = e.currentTarget.querySelector('.arrow-btn') as HTMLElement;
+                        if(arrowBtn) { arrowBtn.style.background = '#6366f1'; arrowBtn.style.color = '#ffffff'; arrowBtn.style.borderColor = '#6366f1'; }
+                      }}
+                      onMouseLeave={e => { 
+                        (e.currentTarget as HTMLElement).style.boxShadow = card.boxShadow as string; 
+                        (e.currentTarget as HTMLElement).style.borderColor = T.cardBorder; 
+                        (e.currentTarget as HTMLElement).style.transform = 'none';
+                        const arrowBtn = e.currentTarget.querySelector('.arrow-btn') as HTMLElement;
+                        if(arrowBtn) { arrowBtn.style.background = 'transparent'; arrowBtn.style.color = T.textMuted; arrowBtn.style.borderColor = T.cardBorder; }
+                      }}
                     >
-                      <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: isDark ? 'rgba(129, 140, 248, 0.15)' : '#EAF2FB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <Icon size={18} color={isDark ? '#818cf8' : '#1A5276'} strokeWidth={2} />
+                      <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: link.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                        <Icon size={24} color="#ffffff" strokeWidth={2} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: '14px', fontWeight: 700, color: T.text, margin: 0, lineHeight: 1 }}>{link.label}</p>
-                        <p style={{ fontSize: '12px', color: T.textSub, marginTop: '3px' }}>{link.sub}</p>
+                        <p style={{ fontSize: '15px', fontWeight: 700, color: T.text, margin: 0, lineHeight: 1 }}>{link.label}</p>
+                        <p style={{ fontSize: '13px', color: T.textSub, marginTop: '5px' }}>{link.sub}</p>
                       </div>
-                      <ChevronRight size={15} color={T.textMuted} strokeWidth={2} />
+                      <div className="arrow-btn" style={{ width: '32px', height: '32px', borderRadius: '8px', border: `1.5px solid ${T.cardBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: T.textMuted, transition: 'all 0.2s' }}>
+                        <ArrowUpRight size={16} strokeWidth={2.5} />
+                      </div>
                     </div>
                   </Link>
                 );
@@ -281,17 +308,17 @@ export default function ShopOwnerDashboard() {
           </div>
 
           {/* ── Pending Requests ──────────────────────────────── */}
-          <div style={card}>
+          <div style={{ ...card, borderRadius: '14px', border: `1.5px solid ${T.cardBorder}`, overflow: 'hidden' }}>
             {/* Card header */}
             <div style={{ padding: '18px 22px 14px', borderBottom: `1px solid ${T.divider}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: '28px', height: '28px', borderRadius: '7px', background: isDark ? 'rgba(212, 160, 23, 0.15)' : '#FEF9ED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Bell size={14} color={isDark ? '#fbbf24' : '#D4A017'} strokeWidth={2} />
                 </div>
-                <h2 style={{ fontSize: '15px', fontWeight: 700, color: isDark ? '#818cf8' : '#1A5276', margin: 0 }}>Pending Requests</h2>
+                <h2 style={{ fontSize: '15px', fontWeight: 700, color: isDark ? '#818cf8' : '#1A5276', margin: 0 }}>{t('seller_dashboard.pending_requests', 'Pending Requests')}</h2>
                 {requests.length > 0 && (
                   <span style={{ fontSize: '11px', fontWeight: 700, background: isDark ? 'rgba(212, 160, 23, 0.15)' : '#FEF9ED', color: isDark ? '#fbbf24' : '#9A7D0A', border: `1px solid ${isDark ? 'rgba(212, 160, 23, 0.3)' : '#E8D4A0'}`, padding: '2px 8px', borderRadius: '999px' }}>
-                    {requests.length} pending
+                    {t('seller_dashboard.pending_count', '{{count}} pending', { count: requests.length })}
                   </span>
                 )}
               </div>
@@ -299,7 +326,7 @@ export default function ShopOwnerDashboard() {
                 onClick={fetchRequests}
                 disabled={requestsLoading}
                 style={{ width: '32px', height: '32px', borderRadius: '8px', border: `1px solid ${T.innerBorder}`, background: T.innerBg, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: requestsLoading ? 0.5 : 1 }}
-                title="Refresh"
+                title={t('seller_dashboard.refresh', 'Refresh')}
               >
                 <RefreshCw size={13} color={T.textSub} className={requestsLoading ? 'animate-spin' : ''} />
               </button>
@@ -312,10 +339,12 @@ export default function ShopOwnerDashboard() {
                   <div style={{ width: '28px', height: '28px', border: '3px solid #EAF2FB', borderTopColor: '#1A5276', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                 </div>
               ) : requests.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '36px 0' }}>
-                  <CheckCircle2 size={40} color="#C2B9AD" strokeWidth={1.5} style={{ margin: '0 auto 12px' }} />
-                  <p style={{ color: '#6B7280', fontWeight: 600, fontSize: '14px' }}>No pending requests</p>
-                  <p style={{ color: '#9CA3AF', fontSize: '12px', marginTop: '4px' }}>Customer credit requests will appear here.</p>
+                <div style={{ textAlign: 'center', padding: '60px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div style={{ width: '80px', height: '80px', borderRadius: '50%', border: `2px dashed ${T.cardBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
+                    <CheckCircle2 size={36} color="#CBD5E1" strokeWidth={1.5} />
+                  </div>
+                  <p style={{ color: T.text, fontWeight: 700, fontSize: '16px' }}>{t('seller_dashboard.no_pending_requests', 'No pending requests')}</p>
+                  <p style={{ color: T.textSub, fontSize: '14px', marginTop: '6px' }}>{t('seller_dashboard.pending_requests_subtitle', 'Customer credit requests will appear here.')}</p>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -338,12 +367,12 @@ export default function ShopOwnerDashboard() {
                             <p style={{ fontSize: '14px', fontWeight: 700, color: T.text, margin: 0, lineHeight: 1 }}>{req.customerName}</p>
                             <p style={{ fontSize: '11px', color: T.textSub, marginTop: '3px' }}>
                               {new Date(req.date).toLocaleDateString('en-IN')} • {new Date(req.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                              {' '} • {req.items.length} item{req.items.length !== 1 ? 's' : ''}
+                              {' '} • {req.items.length === 1 ? t('seller_dashboard.items_count', '{{count}} item', { count: 1 }) : t('seller_dashboard.items_count_plural', '{{count}} items', { count: req.items.length })}
                             </p>
                           </div>
                           <div style={{ textAlign: 'right', flexShrink: 0 }}>
                             <p style={{ fontSize: '16px', fontWeight: 800, color: isDark ? '#818cf8' : '#1A5276', margin: 0 }}>₹{req.totalAmount.toLocaleString()}</p>
-                            <p style={{ fontSize: '10px', color: T.textMuted, marginTop: '2px' }}>Total request</p>
+                            <p style={{ fontSize: '10px', color: T.textMuted, marginTop: '2px' }}>{t('seller_dashboard.total_request', 'Total request')}</p>
                           </div>
                           <ChevronDown size={16} color={T.textSub} strokeWidth={2} style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }} />
                         </div>
@@ -357,7 +386,7 @@ export default function ShopOwnerDashboard() {
                               style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 0 10px', background: 'none', border: 'none', fontSize: '12px', fontWeight: 700, color: isDark ? '#818cf8' : '#1A5276', cursor: 'pointer' }}
                             >
                               {allSelected ? <CheckSquare size={14} color={isDark ? '#818cf8' : '#1A5276'} /> : <Square size={14} color={T.textSub} />}
-                              {allSelected ? 'Deselect All' : 'Select All Products'}
+                              {allSelected ? t('seller_dashboard.deselect_all', 'Deselect All') : t('seller_dashboard.select_all', 'Select All Products')}
                             </button>
 
                             {/* Product rows */}
@@ -397,7 +426,7 @@ export default function ShopOwnerDashboard() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                             <div>
                               <p style={{ fontSize: '10px', fontWeight: 700, color: T.textSub, textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
-                                {allSelected ? 'Total Amount' : 'Request Total'}
+                                {allSelected ? t('seller_dashboard.total_amount', 'Total Amount') : t('seller_dashboard.request_total', 'Request Total')}
                               </p>
                               <p style={{ fontSize: '18px', fontWeight: 800, color: allSelected ? (isDark ? '#818cf8' : '#1A5276') : T.textMuted, margin: 0, textDecoration: allSelected ? 'none' : 'line-through', textDecorationColor: '#CB4335' }}>
                                 ₹{req.totalAmount.toLocaleString()}
@@ -405,7 +434,7 @@ export default function ShopOwnerDashboard() {
                             </div>
                             {!allSelected && currentSelections.length > 0 && (
                               <div>
-                                <p style={{ fontSize: '10px', fontWeight: 700, color: T.textSub, textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>Selected</p>
+                                <p style={{ fontSize: '10px', fontWeight: 700, color: T.textSub, textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>{t('seller_dashboard.selected', 'Selected')}</p>
                                 <p style={{ fontSize: '18px', fontWeight: 800, color: isDark ? '#818cf8' : '#1A5276', margin: 0 }}>₹{selectedTotal.toLocaleString()}</p>
                               </div>
                             )}
@@ -427,7 +456,7 @@ export default function ShopOwnerDashboard() {
                               {processingRequestId === req.id ? (
                                 <><Loader2 size={13} className="animate-spin" /> Processing…</>
                               ) : (
-                                <><CheckCircle2 size={13} />{allSelected ? 'Approve All' : someSelected ? `Approve (${currentSelections.length})` : 'Approve'}</>
+                                <><CheckCircle2 size={13} />{allSelected ? t('seller_dashboard.approve_all', 'Approve All') : someSelected ? t('seller_dashboard.approve_count', 'Approve ({{count}})', { count: currentSelections.length }) : t('seller_dashboard.approve', 'Approve')}</>
                               )}
                             </button>
                             <button
@@ -443,7 +472,7 @@ export default function ShopOwnerDashboard() {
                                 transition: 'background 0.15s',
                               }}
                             >
-                              {processingRequestId === req.id ? <Loader2 size={13} className="animate-spin" /> : <><X size={13} />Reject</>}
+                              {processingRequestId === req.id ? <Loader2 size={13} className="animate-spin" /> : <><X size={13} />{t('seller_dashboard.reject', 'Reject')}</>}
                             </button>
                           </div>
                         </div>

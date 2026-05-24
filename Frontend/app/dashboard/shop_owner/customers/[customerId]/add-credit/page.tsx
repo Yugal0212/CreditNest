@@ -11,6 +11,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { shopOwnerAPI } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 
 type Product = {
   id: string; name: string; unit: string; pricePerUnit: number;
@@ -34,6 +35,7 @@ const categoryColors: Record<string, string> = {
 };
 
 export default function AddCreditPage() {
+  const { t } = useTranslation();
   const params = useParams();
   const router = useRouter();
   const customerId = params.customerId as string;
@@ -93,10 +95,13 @@ export default function AddCreditPage() {
         totalAmount: cartTotal,
         notes: notes || undefined,
       });
-      toast({ title: '✅ Credit Added!', description: `₹${cartTotal.toLocaleString()} added to ${customer.name}` });
+      toast({
+        title: `✅ ${t('add_credit_page.success_title', 'Credit Added!')}`,
+        description: t('add_credit_page.success_added', '₹{{amount}} added to {{name}}', { amount: cartTotal.toLocaleString(), name: customer.name }),
+      });
       router.push(`/dashboard/shop_owner/customers/${customer.id}/history?refresh=${Date.now()}`);
     } catch (e: any) {
-      toast({ title: 'Error', description: e.response?.data?.message || 'Failed', variant: 'destructive' });
+      toast({ title: t('common.error', 'Error'), description: e.response?.data?.message || t('common.failed', 'Failed'), variant: 'destructive' });
     } finally { setSubmitting(false); }
   };
 
@@ -116,7 +121,7 @@ export default function AddCreditPage() {
           <div className="flex items-center justify-center h-[calc(100vh-120px)]">
             <div className="text-center">
               <Loader2 className="w-12 h-12 animate-spin text-primary dark:text-indigo-400 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground font-medium">Loading products...</p>
+              <p className="text-sm text-muted-foreground font-medium">{t('add_credit_page.loading_products', 'Loading products...')}</p>
             </div>
           </div>
         </DashboardLayout>
@@ -134,7 +139,7 @@ export default function AddCreditPage() {
             className="flex items-center gap-1.5 text-sm font-bold text-muted-foreground hover:text-foreground transition-colors group"
           >
             <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-            Back
+            {t('add_credit_page.back')}
           </button>
           {customer && (
             <>
@@ -145,7 +150,7 @@ export default function AddCreditPage() {
                 </div>
                 <span className="font-bold text-foreground text-sm">{customer.name}</span>
                 <span className="text-muted-foreground text-sm">—</span>
-                <span className="font-bold text-primary dark:text-indigo-400 text-sm">Add Credit</span>
+                <span className="font-bold text-primary dark:text-indigo-400 text-sm">{t('add_credit_page.add_credit')}</span>
               </div>
             </>
           )}
@@ -161,7 +166,7 @@ export default function AddCreditPage() {
                 <input
                   value={productSearch}
                   onChange={e => setProductSearch(e.target.value)}
-                  placeholder="Search products..."
+                  placeholder={t('add_credit_page.search_placeholder')}
                   className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 dark:ring-indigo-400/50 shadow-sm"
                 />
                 {productSearch && (
@@ -175,7 +180,7 @@ export default function AddCreditPage() {
                 className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary to-indigo-500 text-white font-bold text-sm shadow-md hover:from-indigo-600 hover:to-teal-700 transition-all flex items-center gap-2 whitespace-nowrap"
               >
                 <Plus className="w-4 h-4" />
-                Add Product
+                {t('add_credit_page.add_product')}
               </button>
             </div>
             {/* Category chips */}
@@ -210,10 +215,10 @@ export default function AddCreditPage() {
                 {filteredProducts.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-48 text-center">
                     <Package className="w-12 h-12 text-muted-foreground/20 mb-2" />
-                    <p className="text-muted-foreground text-sm font-medium">No products found</p>
+                    <p className="text-muted-foreground text-sm font-medium">{t('add_credit_page.no_products')}</p>
                     {productSearch && (
                       <button onClick={() => setProductSearch('')} className="mt-2 text-xs text-primary dark:text-indigo-400 font-bold hover:underline">
-                        Clear search
+                        {t('add_credit_page.clear_search')}
                       </button>
                     )}
                   </div>
@@ -282,7 +287,7 @@ export default function AddCreditPage() {
                 <div className="space-y-2 pb-4">
                   <h2 className="text-lg font-black text-foreground mb-4 flex items-center gap-2">
                     <CheckCircle2 className="w-5 h-5 text-primary dark:text-indigo-400" />
-                    Review Order
+                    {t('add_credit_page.review_order')}
                   </h2>
                   {cart.map((item, i) => (
                     <div
@@ -305,11 +310,11 @@ export default function AddCreditPage() {
 
                   {/* Notes */}
                   <div className="mt-4 space-y-1.5">
-                    <label className="text-xs font-bold text-muted-foreground block">Notes (optional)</label>
+                    <label className="text-xs font-bold text-muted-foreground block">{t('add_credit_page.notes_label')}</label>
                     <input
                       value={notes}
                       onChange={e => setNotes(e.target.value)}
-                      placeholder="e.g. Eid purchase, monthly ration..."
+                      placeholder={t('add_credit_page.notes_placeholder')}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-card text-foreground shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 dark:ring-indigo-400/50"
                     />
                   </div>
@@ -325,7 +330,7 @@ export default function AddCreditPage() {
               <div className="flex items-center justify-between mb-2.5 flex-shrink-0">
                 <h3 className="font-black text-foreground text-sm flex items-center gap-1.5">
                   <ShoppingBag className="w-3.5 h-3.5 text-primary dark:text-indigo-400" />
-                  Cart
+                  {t('add_credit_page.cart')}
                   {cart.length > 0 && (
                     <span className="text-[10px] bg-primary text-white px-1.5 py-0.5 rounded-full font-black">
                       {cart.length}
@@ -337,7 +342,7 @@ export default function AddCreditPage() {
                     onClick={() => setCart([])}
                     className="text-[10px] text-red-500 font-bold hover:text-red-600 flex items-center gap-0.5"
                   >
-                    <Trash2 className="w-2.5 h-2.5" /> Clear
+                    <Trash2 className="w-2.5 h-2.5" /> {t('common.clear', 'Clear')}
                   </button>
                 )}
               </div>
@@ -350,7 +355,7 @@ export default function AddCreditPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-xs text-foreground truncate">{customer.name}</p>
-                    <p className="text-[10px] text-muted-foreground">Bal: ₹{customer.creditBalance.toLocaleString()}</p>
+                    <p className="text-[10px] text-muted-foreground">{t('customer_detail_page.balance_short', 'Bal')}: ₹{customer.creditBalance.toLocaleString()}</p>
                   </div>
                 </div>
               )}
@@ -364,8 +369,8 @@ export default function AddCreditPage() {
                 {cart.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center py-6">
                     <ShoppingBag className="w-8 h-8 text-muted-foreground/20 mb-2" />
-                    <p className="text-xs text-muted-foreground font-medium">Cart is empty</p>
-                    <p className="text-[10px] text-muted-foreground/60 mt-0.5">Click products to add</p>
+                    <p className="text-xs text-muted-foreground font-medium">{t('add_credit_page.cart_empty')}</p>
+                    <p className="text-[10px] text-muted-foreground/60 mt-0.5">{t('add_credit_page.click_to_add')}</p>
                   </div>
                 ) : (
                   <div className="space-y-1.5">
@@ -422,7 +427,7 @@ export default function AddCreditPage() {
                       </div>
                     ))}
                     <div className="flex justify-between items-center pt-1 border-t border-border/30">
-                      <span className="text-xs font-bold text-muted-foreground">Total Credit</span>
+                      <span className="text-xs font-bold text-muted-foreground">{t('customer_detail_page.total_credit')}</span>
                       <span className="text-base font-black text-red-500">₹{cartTotal.toLocaleString()}</span>
                     </div>
                   </div>
@@ -435,7 +440,7 @@ export default function AddCreditPage() {
                     className="w-full py-2.5 rounded-xl bg-gradient-to-r from-primary to-indigo-500 text-white font-black text-sm shadow-lg shadow-indigo-500/20 dark:shadow-indigo-400/20 transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 hover:from-indigo-600 hover:to-teal-700"
                   >
                     <ShoppingBag className="w-3.5 h-3.5" />
-                    Review ({cart.length})
+                    {t('add_credit_page.review_btn')} ({cart.length})
                   </button>
                 ) : (
                   <div className="flex flex-col gap-1.5">
@@ -443,7 +448,7 @@ export default function AddCreditPage() {
                       onClick={() => setStep('pick')}
                       className="w-full py-2 rounded-xl border border-border text-foreground font-bold hover:bg-muted transition-colors text-xs"
                     >
-                      ← Back to Products
+                      {t('add_credit_page.back_to_products')}
                     </button>
                     <button
                       onClick={handleSubmit}
@@ -452,7 +457,7 @@ export default function AddCreditPage() {
                     >
                       {submitting
                         ? <Loader2 className="w-4 h-4 animate-spin" />
-                        : <><IndianRupee className="w-3.5 h-3.5" /> Confirm Credit</>
+                        : <><IndianRupee className="w-3.5 h-3.5" /> {t('add_credit_page.confirm_credit')}</>
                       }
                     </button>
                   </div>

@@ -15,6 +15,7 @@ export default function AddCustomer() {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
@@ -42,6 +43,25 @@ export default function AddCustomer() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      if (!allowedMimeTypes.includes(file.type.toLowerCase())) {
+        toast({
+          title: 'Invalid File Type',
+          description: 'Only JPG, JPEG, PNG, and WEBP formats are allowed.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: 'File Too Large',
+          description: 'File size exceeds the 5MB limit.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       setFormData(prev => ({ ...prev, photo: file }));
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -67,8 +87,8 @@ export default function AddCustomer() {
         return;
       }
 
-      // Validate email if provided
-      if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      // Validate email
+      if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
         toast({
           title: 'Validation Error',
           description: 'Please enter a valid email address',
@@ -81,21 +101,18 @@ export default function AddCustomer() {
       const data = new FormData();
       data.append('name', formData.name);
       data.append('phone', formData.phone);
-      if (formData.email) data.append('email', formData.email);
+      data.append('email', formData.email);
       if (formData.address) data.append('address', formData.address);
       if (formData.workplace) data.append('workplace', formData.workplace);
       if (formData.photo) data.append('photo', formData.photo);
 
-      console.log('Adding customer:', {
-        name: formData.name,
-        phone: formData.phone,
-        email: formData.email || 'not provided',
+      setUploadProgress(1); // Start progress bar
+
+      const response = await shopOwnerAPI.addCustomer(data, (progressEvent: any) => {
+        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        setUploadProgress(percentCompleted);
       });
-
-      const response = await shopOwnerAPI.addCustomer(data);
       
-      console.log('Customer added successfully:', response.data);
-
       toast({
         title: 'Success',
         description: 'Customer added successfully',
@@ -104,10 +121,7 @@ export default function AddCustomer() {
       router.push('/dashboard/shop_owner/customers');
     } catch (error: any) {
       console.error('Add customer error:', error);
-      console.error('Error response:', error.response?.data);
-      
       const errorMessage = error.response?.data?.message || 'Failed to add customer';
-      
       toast({
         title: 'Error',
         description: errorMessage,
@@ -115,6 +129,7 @@ export default function AddCustomer() {
       });
     } finally {
       setLoading(false);
+      setUploadProgress(0); // Reset progress bar
     }
   };
 
@@ -160,13 +175,28 @@ export default function AddCustomer() {
                 <Upload className="w-4 h-4" />
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
                   onChange={handleImageChange}
                   className="hidden"
                 />
               </label>
             </div>
             <p className="text-sm text-muted-foreground">Click to upload customer photo</p>
+
+            {uploadProgress > 0 && (
+              <div className="w-full max-w-xs space-y-1">
+                <div className="flex justify-between text-xs font-semibold text-muted-foreground">
+                  <span>Uploading image...</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-primary transition-all duration-300 ease-out" 
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Name */}
@@ -212,7 +242,7 @@ export default function AddCustomer() {
           <div className="space-y-2">
             <Label htmlFor="email" className="flex items-center gap-2 font-bold text-foreground">
               <Mail className="w-4 h-4" />
-              Email Address
+              Email Address *
             </Label>
             <Input
               id="email"
@@ -220,7 +250,8 @@ export default function AddCustomer() {
               type="email"
               value={formData.email}
               onChange={handleInputChange}
-              placeholder="Enter email address (optional)"
+              placeholder="Enter email address"
+              required
               className="bg-card text-card-foreground border border-border shadow-sm"
             />
           </div>

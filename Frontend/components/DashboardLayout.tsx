@@ -18,7 +18,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
    * Sidebar is always white (light) or #1B1F2E (dark) — set inside Sidebar itself.
    * Content area uses slate-100 so white cards and white sidebar both "pop" on it.
    */
-  const contentBg = isDark ? '#0f172a' : '#f1f5f9';
+  const contentBg = isDark ? '#080c14' : '#f0f4f8';
 
   return (
     <div
@@ -40,16 +40,16 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
         className="md:ml-[240px]"
         style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', minWidth: 0 }}
       >
-        {/* Fixed TopBar — 60px tall */}
+        {/* Fixed TopBar — 72px tall */}
         <TopBar />
 
         {/* Page content */}
         <main
           style={{
             flex:           1,
-            paddingTop:     '60px',   /* clear fixed TopBar */
-            paddingLeft:    '28px',
-            paddingRight:   '28px',
+            paddingTop:     '60px',
+            paddingLeft:    '26px',
+            paddingRight:   '26px',
             paddingBottom:  '48px',
             background:     contentBg,
           }}

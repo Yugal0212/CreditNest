@@ -1,6 +1,6 @@
 module.exports = {
-  APP_NAME: 'Smart Credit Management System',
-  APP_SHORT_NAME: 'SCMS',
+  APP_NAME: 'CreditNest',
+  APP_SHORT_NAME: 'CreditNest',
   
   ROLES: {
     ADMIN: 'ADMIN',
@@ -10,24 +10,25 @@ module.exports = {
 
   OTP: {
     LENGTH: 6,
-    EXPIRY_MINUTES: 10,
+    EXPIRY_MINUTES: 5,
     MAX_ATTEMPTS: 3,
     MAX_REQUESTS_PER_HOUR: 3,
+    LOCK_MINUTES: 10,
   },
 
   JWT: {
-    ADMIN_EXPIRY: '7d',
-    SHOP_OWNER_EXPIRY: '30d',
-    CUSTOMER_EXPIRY: '30d',
+    ADMIN_EXPIRY: '2h',
+    SHOP_OWNER_EXPIRY: '8h',
+    CUSTOMER_EXPIRY: '4h',
   },
 
   FILE_UPLOAD: {
     MAX_SIZE: 2 * 1024 * 1024, // 2MB
     ALLOWED_TYPES: ['image/jpeg', 'image/jpg', 'image/png'],
     FOLDERS: {
-      CUSTOMERS: 'scms/customers',
-      PRODUCTS: 'scms/products',
-      SHOPS: 'scms/shops',
+      CUSTOMERS: 'creditnest/customers',
+      PRODUCTS: 'creditnest/products',
+      SHOPS: 'creditnest/shops',
     },
   },
 

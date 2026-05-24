@@ -19,7 +19,7 @@ const transporter = nodemailer.createTransport({
 const sendEmail = async (to, subject, text, html) => {
   try {
     const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || `"${APP_NAME}" <noreply@scms.com>`,
+      from: process.env.EMAIL_FROM || `"${APP_NAME}" <noreply@creditnest.com>`,
       to,
       subject,
       text,
@@ -68,7 +68,7 @@ const sendOTPEmail = async (email, otp, type = 'verification') => {
             <div class="otp">${otp}</div>
           </div>
           
-          <p><strong>Valid for 10 minutes only.</strong></p>
+          <p><strong>Valid for 5 minutes only.</strong></p>
           
           <div class="warning">
             <strong>⚠️ Security Notice:</strong> Never share this OTP with anyone. ${APP_NAME} will never ask for your OTP via call or SMS.
@@ -84,7 +84,7 @@ const sendOTPEmail = async (email, otp, type = 'verification') => {
     </html>
   `;
 
-  const text = `Your ${APP_NAME} OTP is: ${otp}. Valid for 10 minutes. If you didn't request this, please ignore this email.`;
+  const text = `Your ${APP_NAME} OTP is: ${otp}. Valid for 5 minutes. If you didn't request this, please ignore this email.`;
 
   return sendEmail(email, subject, text, html);
 };
@@ -93,6 +93,7 @@ const sendOTPEmail = async (email, otp, type = 'verification') => {
  * Send welcome email to customer
  */
 const sendWelcomeEmail = async (email, name, shopName, phone) => {
+  const loginUrl = process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/login` : '/login';
   const subject = `Welcome to ${shopName} - ${APP_NAME}`;
   const html = `
     <!DOCTYPE html>
@@ -114,27 +115,19 @@ const sendWelcomeEmail = async (email, name, shopName, phone) => {
         </div>
         <div class="content">
           <p>Dear ${name},</p>
-          <p>Your account has been created successfully at <strong>${shopName}</strong>.</p>
+          <p>You have been registered on ${APP_NAME} by <strong>${shopName}</strong>.</p>
           
           <div class="info-box">
-            <h3 style="color: #667eea; margin-top: 0;">Login Information</h3>
+            <h3 style="color: #667eea; margin-top: 0;">Login Details</h3>
             <p><strong>Email:</strong> ${email}</p>
             <p><strong>Phone:</strong> ${phone}</p>
             <p style="color: #666; font-size: 14px; margin-top: 15px;">
-              Use your email or phone number to login. You'll receive an OTP for verification.
+              Login at ${loginUrl} using your mobile or email. You'll receive an OTP to verify your identity.
             </p>
           </div>
           
-          <p>You can now:</p>
-          <ul>
-            <li>View available products</li>
-            <li>Track your credit purchases</li>
-            <li>View payment history</li>
-            <li>Access your account anytime</li>
-          </ul>
-          
           <center>
-            <a href="${process.env.FRONTEND_URL}/login" class="button">Login Now</a>
+            <a href="${loginUrl}" class="button">Login Now</a>
           </center>
         </div>
       </div>
@@ -142,7 +135,7 @@ const sendWelcomeEmail = async (email, name, shopName, phone) => {
     </html>
   `;
 
-  const text = `Welcome to ${shopName}! Your account has been created. Login with your email (${email}) or phone (${phone}) at ${process.env.FRONTEND_URL}/login`;
+  const text = `You have been registered on ${APP_NAME} by ${shopName}. Login at ${loginUrl} using your mobile or email.`;
 
   return sendEmail(email, subject, text, html);
 };

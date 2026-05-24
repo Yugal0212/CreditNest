@@ -1,7 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useEffect } from 'react';
-import { useGoogleTranslate } from '@/hooks/useGoogleTranslate';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import '@/lib/i18n';
 
 export type Language = 'en' | 'hi' | 'gu';
 
@@ -10,55 +11,83 @@ interface LanguageContextType {
   setLanguage: (lang: Language) => void;
   isLoaded: boolean;
   isChanging: boolean;
+  isPageTranslating: boolean;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider = ({ children }: { children: React.ReactNode }) => {
-  const { currentLanguage, changeLanguage, isLoaded, isChanging } = useGoogleTranslate();
+  const { i18n } = useTranslation();
+  const [currentLang, setCurrentLang] = useState<Language>('en');
+  const [isLoaded, setIsLoaded] = useState(true);
+  const [isChanging, setIsChanging] = useState(false);
 
-  // Initialize Google Translate element container
+  // Load and apply the saved language on mount
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    let createdElement = false;
-
-    // Create hidden container for Google Translate widget if it doesn't exist
-    if (!document.getElementById('google_translate_element')) {
-      const container = document.createElement('div');
-      container.id = 'google_translate_element';
-      container.style.display = 'none';
-      document.body.appendChild(container);
-      createdElement = true;
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('language') as Language;
+      const initial = saved && ['en', 'hi', 'gu'].includes(saved) ? saved : (i18n.language as Language) || 'en';
+      
+      // Update local storage and DOM synchronously on mount
+      localStorage.setItem('language', initial);
+      document.documentElement.setAttribute('data-lang', initial);
+      
+      setIsChanging(true);
+      setCurrentLang(initial);
+      i18n.changeLanguage(initial).finally(() => {
+        setIsLoaded(true);
+        setIsChanging(false);
+      });
     }
+  }, [i18n]);
 
-    // Cleanup function
-    return () => {
-      // Only remove if we created it and it still exists
-      if (createdElement) {
-        const element = document.getElementById('google_translate_element');
-        if (element && element.parentNode) {
-          try {
-            element.parentNode.removeChild(element);
-          } catch (error) {
-            // Silently ignore if element was already removed
-            console.debug('Google Translate element already removed');
-          }
-        }
+  useEffect(() => {
+    const handleChanged = (lng: string) => {
+      const normalized = (lng?.split('-')[0] || 'en') as Language;
+      if (['en', 'hi', 'gu'].includes(normalized)) {
+        setCurrentLang(normalized);
+        setIsLoaded(true);
       }
     };
-  }, []);
+
+    i18n.on('languageChanged', handleChanged);
+    return () => {
+      i18n.off('languageChanged', handleChanged);
+    };
+  }, [i18n]);
+
+  const changeLanguage = async (targetLang: Language) => {
+    if (targetLang === currentLang) return;
+
+    setIsChanging(true);
+    
+    // Synchronously write to localStorage and set DOM attributes first
+    // so any component useEffect triggers reading from localStorage get the correct header immediately.
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('language', targetLang);
+      document.documentElement.setAttribute('data-lang', targetLang);
+      window.dispatchEvent(new CustomEvent('language:changed', { detail: { language: targetLang } }));
+    }
+
+    setCurrentLang(targetLang);
+    await i18n.changeLanguage(targetLang);
+
+    setIsChanging(false);
+  };
 
   return (
-    <LanguageContext.Provider 
-      value={{ 
-        language: currentLanguage, 
+    <LanguageContext.Provider
+      value={{
+        language: currentLang,
         setLanguage: changeLanguage,
         isLoaded,
-        isChanging 
+        isChanging,
+        isPageTranslating: false
       }}
     >
-      {children}
+      <div id="main-content-wrapper" className="opacity-100">
+        {children}
+      </div>
     </LanguageContext.Provider>
   );
 };

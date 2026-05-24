@@ -8,9 +8,11 @@ import { useTheme } from '@/contexts/ThemeContext';
 import {
   LayoutGrid, Package, Users, History,
   ShoppingBag, User, BarChart2, FileText,
-  Store, Zap, Shield,
+  Store, Shield, FolderOpen, Settings, MoreVertical
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
+import { shopOwnerAPI } from '@/lib/api';
 
 /* ─────────────────── NAV STRUCTURE ─────────────────────────── */
 type NavItem  = { href: string; icon: React.ElementType; label: string };
@@ -35,7 +37,8 @@ const NAV: Record<string, NavGroup[]> = {
       section: 'INSIGHTS',
       items: [
         { href: '/dashboard/admin/analytics', icon: BarChart2, label: 'Analytics'   },
-        { href: '/dashboard/admin/logs',      icon: FileText,  label: 'System Logs' },
+        { href: '/dashboard/admin/logs',      icon: FileText,  label: 'Activity Logs' },
+        { href: '/dashboard/admin/system',    icon: Shield,    label: 'Diagnostics' },
       ],
     },
     {
@@ -55,9 +58,10 @@ const NAV: Record<string, NavGroup[]> = {
     {
       section: 'OPERATIONS',
       items: [
-        { href: '/dashboard/shop_owner/customers', icon: Users,       label: 'Customers' },
-        { href: '/dashboard/shop_owner/products',  icon: Package,     label: 'Products'  },
-        { href: '/dashboard/shop_owner/orders',    icon: ShoppingBag, label: 'Orders'    },
+        { href: '/dashboard/shop_owner/customers',  icon: Users,       label: 'Customers'  },
+        { href: '/dashboard/shop_owner/products',   icon: Package,     label: 'Products'   },
+        { href: '/dashboard/shop_owner/categories', icon: FolderOpen,  label: 'Categories' },
+        { href: '/dashboard/shop_owner/orders',     icon: ShoppingBag, label: 'Orders'     },
       ],
     },
     {
@@ -69,7 +73,8 @@ const NAV: Record<string, NavGroup[]> = {
     {
       section: 'ACCOUNT',
       items: [
-        { href: '/dashboard/profile', icon: User, label: 'Profile' },
+        { href: '/dashboard/profile',  icon: User,     label: 'Profile'  },
+        { href: '/dashboard/settings', icon: Settings, label: 'Settings' },
       ],
     },
   ],
@@ -110,6 +115,7 @@ function getInitials(name: string) {
 
 /* ─────────────────── COMPONENT ─────────────────────────────── */
 export const Sidebar = () => {
+  const { t } = useTranslation();
   const { user, isAuthenticated } = useAuth();
   const { theme } = useTheme();
   const pathname  = usePathname();
@@ -120,46 +126,23 @@ export const Sidebar = () => {
   const roleKey = user.role.toLowerCase() as 'admin' | 'shop_owner' | 'customer';
   const groups  = NAV[roleKey] || [];
 
-  /* ── Design tokens matching AdminMart style ── */
-  const D = {
-    /* Sidebar shell */
-    bg:           isDark ? '#1B1F2E' : '#FFFFFF',
-    border:       isDark ? '#252B3B' : '#E2E8F0',
+  const [customerCount, setCustomerCount] = React.useState<number | null>(null);
 
-    /* Brand strip */
-    brandBg:      isDark ? '#141824' : '#FFFFFF',
-    brandBorder:  isDark ? '#252B3B' : '#E2E8F0',
-    logoMark:     isDark ? '#1E3A5F' : '#EFF6FF',
-    logoIcon:     '#D4A017',
-    brandName:    isDark ? '#F1F5F9' : '#0F172A',
-    brandSub:     isDark ? '#4A5568' : '#94A3B8',
+  React.useEffect(() => {
+    if (roleKey === 'shop_owner') {
+      shopOwnerAPI.getDashboardStats()
+        .then(res => setCustomerCount(res.data?.stats?.totalCustomers ?? res.data?.totalCustomers ?? 0))
+        .catch(err => console.error('Failed to fetch sidebar stats', err));
+    }
+  }, [roleKey]);
 
-    /* Section labels */
-    sectionLabel: isDark ? '#4A5568' : '#94A3B8',
-
-    /* Nav items — inactive */
-    itemBg:         'transparent',
-    itemText:       isDark ? '#CBD5E1' : '#374151',
-    itemIcon:       isDark ? '#64748B' : '#6B7280',
-
-    /* Nav items — active (navy blue pill) */
-    activeBg:       isDark ? '#154360' : '#1A5276',   // navy blue pill
-    activeText:     '#FFFFFF',
-    activeIcon:     '#FFFFFF',
-
-    /* Hover */
-    hoverBg:      isDark ? '#252B3B' : '#F1F5F9',
-
-    /* User card */
-    userCardBg:   isDark ? '#141824' : '#F8FAFC',
-    userCardBorder:isDark ? '#252B3B' : '#E2E8F0',
-    userName:     isDark ? '#F1F5F9' : '#0F172A',
-    userRole:     isDark ? '#64748B' : '#6B7280',
-  };
+  /* ── Spec-exact Design Tokens ── */
+  const sidebarBg = isDark ? '#06090f' : '#0b1629';
+  const borderColor = 'rgba(255,255,255,0.06)';
 
   const roleLabel =
-    roleKey === 'admin'      ? 'Administrator' :
-    roleKey === 'shop_owner' ? 'Shop Owner'    : 'Customer';
+    roleKey === 'admin'      ? t('roles.ADMIN', 'Administrator') :
+    roleKey === 'shop_owner' ? t('roles.SHOP_OWNER', 'Shop Owner') : t('roles.CUSTOMER', 'Customer');
 
   return (
     <aside
@@ -170,69 +153,76 @@ export const Sidebar = () => {
         width:     '240px',
         height:    '100vh',
         zIndex:    40,
-        background: D.bg,
-        borderRight: `1px solid ${D.border}`,
-        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        background: sidebarBg,
+        borderRight: `1px solid ${borderColor}`,
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         WebkitFontSmoothing: 'antialiased',
+        fontSize: '13px',
+        fontWeight: 500,
       }}
     >
-
-      {/* ══ BRAND STRIP (60px — aligns with TopBar) ══════════ */}
+      {/* ══ LOGO AREA ══════════════════════════════════════════ */}
       <div style={{
         height:       '64px',
-        background:   D.brandBg,
-        borderBottom: `1px solid ${D.brandBorder}`,
+        borderBottom: `1px solid ${borderColor}`,
         display:      'flex',
         alignItems:   'center',
         gap:          '11px',
-        padding:      '0 20px',
+        padding:      '0 18px',
         flexShrink:   0,
       }}>
-        {/* Logo mark */}
+        {/* Logo image */}
         <div style={{
-          width: '34px', height: '34px',
-          borderRadius: '8px',
-          background: D.logoMark,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: '38px',
+          height: '38px',
+          borderRadius: '10px',
+          overflow: 'hidden',
           flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}>
-          <Zap size={18} color={D.logoIcon} strokeWidth={2.5} />
+          <img
+            src="/CreditNest.png"
+            alt="CreditNest Logo"
+            style={{ width: '38px', height: '38px', objectFit: 'contain' }}
+          />
         </div>
 
-        {/* Brand name */}
-        <div>
-          <p style={{ fontSize: '15px', fontWeight: 700, color: D.brandName, lineHeight: 1, margin: 0, letterSpacing: '-0.02em' }}>
-            Smart Credit
+        {/* Brand name + slogan */}
+        <div style={{ minWidth: 0 }}>
+          <p style={{ fontSize: '15px', fontWeight: 700, color: '#fff', lineHeight: 1, margin: 0, letterSpacing: '-0.025em', whiteSpace: 'nowrap' }}>
+            CreditNest
           </p>
-          <p style={{ fontSize: '11px', color: D.brandSub, lineHeight: 1, marginTop: '3px' }}>
-            Management System
+          <p style={{ fontSize: '9.5px', color: 'rgba(255,255,255,0.32)', lineHeight: 1, marginTop: '4px', fontWeight: 400, letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
+            Smart credit · Built for India
           </p>
         </div>
       </div>
 
       {/* ══ NAV (scrollable) ══════════════════════════════════ */}
-      <nav
+      <div
         style={{
-          flex:       1,
-          overflowY:  'auto',
-          padding:    '8px 12px',
+          flex:           1,
+          overflowY:      'auto',
+          padding:        '8px 10px',
           scrollbarWidth: 'none',
         }}
       >
         {groups.map((group, gi) => (
-          <div key={group.section} style={{ marginTop: gi === 0 ? '4px' : '22px' }}>
+          <div key={group.section} style={{ marginTop: gi === 0 ? '4px' : '0px' }}>
 
             {/* ── Section label ── */}
             <p style={{
-              fontSize:      '10.5px',
+              fontSize:      '9px',
               fontWeight:    700,
-              color:         D.sectionLabel,
-              letterSpacing: '0.10em',
+              color:         'rgba(255,255,255,0.22)',
+              letterSpacing: '0.13em',
               textTransform: 'uppercase',
-              padding:       '0 8px',
-              margin:        '0 0 6px 0',
+              padding:       '14px 6px 5px',
+              margin:        0,
             }}>
-              {group.section}
+              {t(`sidebar.sections.${group.section.toLowerCase()}`, group.section)}
             </p>
 
             {/* ── Nav items ── */}
@@ -244,121 +234,180 @@ export const Sidebar = () => {
                   initial={{ opacity: 0, x: -6 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: (gi * 4 + ii) * 0.018, duration: 0.18 }}
+                  style={{ position: 'relative', marginBottom: '2px' }}
                 >
+                  {/* Active left bar */}
+                  {active && (
+                    <div style={{
+                      position:     'absolute',
+                      left:         0,
+                      top:          '20%',
+                      height:       '60%',
+                      width:        '3px',
+                      background:   '#6366f1',
+                      borderRadius: '0 3px 3px 0',
+                      zIndex:       1,
+                    }} />
+                  )}
                   <Link
                     href={href}
                     style={{
-                      display:         'flex',
-                      alignItems:      'center',
-                      gap:             '11px',
-                      padding:         '9px 12px',
-                      borderRadius:    '8px',
-                      margin:          '2px 0',
-                      textDecoration:  'none',
-                      background:      active ? D.activeBg : D.itemBg,
-                      transition:      'background 0.15s',
-                      cursor:          'pointer',
+                      display:        'flex',
+                      alignItems:     'center',
+                      gap:            '10px',
+                      padding:        '9px 10px',
+                      borderRadius:   '8px',
+                      textDecoration: 'none',
+                      background:     active ? 'rgba(99,102,241,0.18)' : 'transparent',
+                      transition:     'all 0.15s',
+                      cursor:         'pointer',
+                      color:          active ? '#a5b4fc' : 'rgba(255,255,255,0.42)',
                     }}
                     onMouseEnter={e => {
-                      if (!active) (e.currentTarget as HTMLElement).style.background = D.hoverBg;
+                      if (!active) {
+                        (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.07)';
+                        (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.78)';
+                      }
                     }}
                     onMouseLeave={e => {
-                      if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent';
+                      if (!active) {
+                        (e.currentTarget as HTMLElement).style.background = 'transparent';
+                        (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.42)';
+                      }
                     }}
                   >
-                    {/* Icon */}
-                    <Icon
-                      size={17}
-                      strokeWidth={active ? 2.5 : 1.8}
-                      style={{ color: active ? D.activeIcon : D.itemIcon, flexShrink: 0 }}
-                    />
+                    {/* Icon container — 20px wide, centered */}
+                    <div style={{ width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Icon
+                        size={17}
+                        strokeWidth={active ? 2.5 : 2}
+                      />
+                    </div>
 
                     {/* Label */}
                     <span style={{
-                      fontSize:   '14px',
-                      fontWeight: active ? 600 : 400,
-                      color:      active ? D.activeText : D.itemText,
-                      flex:        1,
-                      lineHeight: 1,
+                      fontSize:      '13px',
+                      fontWeight:    active ? 600 : 500,
+                      flex:          1,
+                      lineHeight:    1,
                       letterSpacing: '-0.01em',
                     }}>
-                      {label}
+                      {t(`sidebar.items.${label.toLowerCase().replace(/\s+/g, '_')}`, label)}
                     </span>
+
+                    {/* Badge for Customers */}
+                    {label === 'Customers' && customerCount !== null && customerCount > 0 && (
+                      <span style={{
+                        fontSize:   '10px',
+                        fontWeight: 600,
+                        color:      '#f87171',
+                        background: 'rgba(239,68,68,0.18)',
+                        border:     '1px solid rgba(239,68,68,0.25)',
+                        padding:    '2px 6px',
+                        borderRadius: '99px',
+                        lineHeight: 1,
+                      }}>
+                        {customerCount}
+                      </span>
+                    )}
                   </Link>
                 </motion.div>
               );
             })}
           </div>
         ))}
-      </nav>
+      </div>
 
-      {/* ══ USER CARD (AdminMart style) ══════════════════════ */}
+      {/* ══ UPGRADE CARD ══════════════════════════════════════ */}
+      <div style={{ padding: '10px 10px 0' }}>
+        <div style={{
+          background:   'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(14,165,233,0.15))',
+          border:       '1px solid rgba(99,102,241,0.25)',
+          borderRadius: '10px',
+          padding:      '12px 14px',
+        }}>
+          <p style={{ fontSize: '12px', fontWeight: 600, color: '#a5b4fc', margin: '0 0 2px' }}>⚡ Upgrade to Pro</p>
+          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', margin: 0, lineHeight: 1.4 }}>Unlock advanced analytics & priority support</p>
+          <button style={{
+            marginTop:    '10px',
+            width:        '100%',
+            padding:      '6px 0',
+            borderRadius: '7px',
+            background:   'rgba(99,102,241,0.25)',
+            border:       '1px solid rgba(99,102,241,0.4)',
+            color:        '#a5b4fc',
+            fontSize:     '11px',
+            fontWeight:   600,
+            cursor:       'pointer',
+            transition:   'background 0.15s',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(99,102,241,0.4)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'rgba(99,102,241,0.25)')}
+          >
+            Upgrade Now
+          </button>
+        </div>
+      </div>
+
+      {/* ══ USER ROW FOOTER ════════════════════════════════════ */}
       <div style={{
-        borderTop:  `1px solid ${D.userCardBorder}`,
-        padding:    '12px',
+        borderTop:  `1px solid ${borderColor}`,
+        padding:    '12px 10px',
         flexShrink: 0,
-        background: D.userCardBg,
       }}>
         <div style={{
           display:       'flex',
           alignItems:    'center',
-          gap:           '11px',
-          padding:       '10px 12px',
+          gap:           '10px',
+          padding:       '8px 10px',
           borderRadius:  '10px',
-          background:    isDark ? '#1E2536' : '#FFFFFF',
-          border:        `1px solid ${D.userCardBorder}`,
-        }}>
-          {/* Avatar */}
-          <div style={{
-            width:          '36px',
-            height:         '36px',
-            borderRadius:   '50%',
-            background:     'linear-gradient(135deg, #1D4ED8 0%, #3B82F6 100%)',
-            display:        'flex',
-            alignItems:     'center',
-            justifyContent: 'center',
-            fontSize:       '13px',
-            fontWeight:     700,
-            color:          '#FFFFFF',
-            flexShrink:     0,
-          }}>
-            {getInitials(user?.name || 'U')}
+          background:    'transparent',
+          cursor:        'pointer',
+          transition:    'background 0.2s',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.07)')}
+        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+        >
+          {/* Avatar with gradient + online dot */}
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <div style={{
+              width:          '34px',
+              height:         '34px',
+              borderRadius:   '50%',
+              background:     'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              display:        'flex',
+              alignItems:     'center',
+              justifyContent: 'center',
+              fontSize:       '13px',
+              fontWeight:     700,
+              color:          '#FFFFFF',
+            }}>
+              {getInitials(user?.name || 'U')}
+            </div>
+            {/* Online dot: 9×9px, #22c55e */}
+            <div style={{
+              position:     'absolute',
+              bottom:       '-1px',
+              right:        '-1px',
+              width:        '9px',
+              height:       '9px',
+              borderRadius: '50%',
+              background:   '#22c55e',
+              border:       `2px solid ${sidebarBg}`,
+            }} />
           </div>
 
           {/* Name + role */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{
-              fontSize:      '13.5px',
-              fontWeight:    700,
-              color:         D.userName,
-              margin:        0,
-              lineHeight:    1,
-              overflow:      'hidden',
-              textOverflow:  'ellipsis',
-              whiteSpace:    'nowrap',
-            }}>
+            <p style={{ fontSize: '13px', fontWeight: 500, color: 'rgba(255,255,255,0.8)', margin: 0, lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {user?.name || 'User'}
             </p>
-            <p style={{
-              fontSize:      '11.5px',
-              color:         D.userRole,
-              marginTop:     '3px',
-              lineHeight:    1,
-              textTransform: 'capitalize',
-            }}>
+            <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginTop: '3px', lineHeight: 1, textTransform: 'capitalize' }}>
               {roleLabel}
             </p>
           </div>
 
-          {/* Online dot */}
-          <div style={{
-            width:        '8px',
-            height:       '8px',
-            borderRadius: '50%',
-            background:   '#10B981',
-            flexShrink:   0,
-            boxShadow:    '0 0 0 2px rgba(16,185,129,0.2)',
-          }} />
+          <MoreVertical size={15} color="rgba(255,255,255,0.3)" />
         </div>
       </div>
 

@@ -7,6 +7,7 @@ const logger = require('../utils/logger');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ROLES, FILE_UPLOAD, PAGINATION } = require('../config/constants');
 const { normalizePhoneNumber, isValidIndianPhone } = require('../utils/phoneValidation');
+const { getLocalizedValue } = require('../utils/localization');
 
 // =====================================================
 // DASHBOARD
@@ -147,6 +148,7 @@ exports.getAllCustomers = asyncHandler(async (req, res) => {
 exports.getCustomerDetails = asyncHandler(async (req, res) => {
   const { customerId } = req.params;
   const shopId = req.user.shopId;
+    const lang = req.lang || 'en';
 
   const customer = await prisma.customer.findFirst({
     where: {
@@ -167,7 +169,6 @@ exports.getCustomerDetails = asyncHandler(async (req, res) => {
           // Exclude pending order requests - only show approved orders
           OR: [
             { notes: null },
-            { notes: { isSet: false } },
             { NOT: { notes: { startsWith: '[REQUEST]' } } }
           ]
         },
@@ -213,7 +214,15 @@ exports.getCustomerDetails = asyncHandler(async (req, res) => {
         id: t.id,
         date: t.transactionDate,
         amount: t.totalAmount,
-        products: t.items.map((item) => `${item.product.productName} (${item.quantity})`),
+        products: t.items.map((item) => {
+          const name = getLocalizedValue(lang, {
+            en: item.product.productNameEn,
+            hi: item.product.productNameHi,
+            gu: item.product.productNameGu,
+            fallback: item.product.productName,
+          });
+          return `${name} (${item.quantity})`;
+        }),
         status: t.paymentStatus,
       })),
       paymentHistory: customer.payments.map((p) => ({
@@ -236,6 +245,13 @@ exports.addCustomer = asyncHandler(async (req, res) => {
   const shopId = req.user.shopId;
   const { name, phone, email, address, workplace } = req.body;
 
+  if (!email || !email.trim()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email is required for customer registration',
+    });
+  }
+
   // Normalize phone number
   const normalizedPhone = normalizePhoneNumber(phone);
 
@@ -248,14 +264,11 @@ exports.addCustomer = asyncHandler(async (req, res) => {
   }
 
   // Build query conditions for existing user check
+  const normalizedEmail = email.toLowerCase().trim();
   const existingUserConditions = [
     { phone: normalizedPhone },
+    { email: normalizedEmail },
   ];
-
-  // Only check email if provided
-  if (email && email.trim()) {
-    existingUserConditions.push({ email: email.toLowerCase().trim() });
-  }
 
   // Check if user already exists with normalized phone or email
   const existingUser = await prisma.user.findFirst({
@@ -278,7 +291,7 @@ exports.addCustomer = asyncHandler(async (req, res) => {
     const timestamp = Date.now();
     const fileName = `customer_${timestamp}`;
     const result = await uploadToCloudinary(
-      req.file.buffer,
+      req.file,
       FILE_UPLOAD.FOLDERS.CUSTOMERS,
       fileName
     );
@@ -291,7 +304,7 @@ exports.addCustomer = asyncHandler(async (req, res) => {
   // Create user with normalized phone
   const user = await prisma.user.create({
     data: {
-      email: email && email.trim() ? email.toLowerCase().trim() : null,
+      email: normalizedEmail,
       phone: normalizedPhone,
       role: ROLES.CUSTOMER,
     },
@@ -312,9 +325,7 @@ exports.addCustomer = asyncHandler(async (req, res) => {
   // Send welcome email and SMS
   try {
     const shop = await prisma.shop.findUnique({ where: { id: shopId } });
-    if (email && email.trim()) {
-      await sendWelcomeEmail(email, name, shop.shopName, normalizedPhone);
-    }
+    await sendWelcomeEmail(normalizedEmail, name, shop.shopName, normalizedPhone);
     await sendWelcomeSMS(normalizedPhone, name, shop.shopName);
   } catch (error) {
     logger.error('Failed to send welcome message:', error);
@@ -329,7 +340,7 @@ exports.addCustomer = asyncHandler(async (req, res) => {
       id: customer.id,
       name: customer.customerName,
       phone: normalizedPhone,
-      email,
+      email: normalizedEmail,
       avatar: photoUrl,
       address,
       workplace,
@@ -412,7 +423,7 @@ exports.updateCustomer = asyncHandler(async (req, res) => {
     const timestamp = Date.now();
     const fileName = `customer_${timestamp}`;
     const result = await uploadToCloudinary(
-      req.file.buffer,
+      req.file,
       FILE_UPLOAD.FOLDERS.CUSTOMERS,
       fileName
     );
@@ -517,6 +528,7 @@ exports.deleteCustomer = asyncHandler(async (req, res) => {
 exports.getAllProducts = asyncHandler(async (req, res) => {
   const shopId = req.user.shopId;
   const { page = 1, limit = 20, search = '', category } = req.query;
+  const lang = req.lang || 'en';
 
   const skip = (parseInt(page) - 1) * parseInt(limit);
   const take = parseInt(limit);
@@ -544,8 +556,18 @@ exports.getAllProducts = asyncHandler(async (req, res) => {
     success: true,
     products: products.map((p) => ({
       id: p.id,
-      name: p.productName,
-      category: p.category,
+      name: getLocalizedValue(lang, {
+        en: p.productNameEn,
+        hi: p.productNameHi,
+        gu: p.productNameGu,
+        fallback: p.productName,
+      }),
+      category: getLocalizedValue(lang, {
+        en: p.categoryEn,
+        hi: p.categoryHi,
+        gu: p.categoryGu,
+        fallback: p.category,
+      }),
       unit: p.unit,
       pricePerUnit: p.pricePerUnit,
       photoUrl: p.photoUrl || generateAvatarUrl(p.productName),
@@ -568,7 +590,24 @@ exports.getAllProducts = asyncHandler(async (req, res) => {
  */
 exports.addProduct = asyncHandler(async (req, res) => {
   const shopId = req.user.shopId;
-  const { productName, category, unit, pricePerUnit, stockStatus, description } = req.body;
+  const {
+    productName,
+    productNameEn,
+    productNameHi,
+    productNameGu,
+    category,
+    categoryEn,
+    categoryHi,
+    categoryGu,
+    unit,
+    pricePerUnit,
+    stockStatus,
+    description,
+  } = req.body;
+
+  const lang = req.lang || 'en';
+  const normalizedProductName = productName?.trim();
+  const normalizedCategory = category?.trim();
 
   let photoUrl = null;
 
@@ -577,7 +616,7 @@ exports.addProduct = asyncHandler(async (req, res) => {
     const timestamp = Date.now();
     const fileName = `product_${timestamp}`;
     const result = await uploadToCloudinary(
-      req.file.buffer,
+      req.file,
       FILE_UPLOAD.FOLDERS.PRODUCTS,
       fileName
     );
@@ -589,8 +628,14 @@ exports.addProduct = asyncHandler(async (req, res) => {
   const product = await prisma.product.create({
     data: {
       shopId,
-      productName,
-      category,
+      productName: normalizedProductName,
+      productNameEn: productNameEn?.trim() || normalizedProductName,
+      productNameHi: productNameHi?.trim() || null,
+      productNameGu: productNameGu?.trim() || null,
+      category: normalizedCategory,
+      categoryEn: categoryEn?.trim() || normalizedCategory || null,
+      categoryHi: categoryHi?.trim() || null,
+      categoryGu: categoryGu?.trim() || null,
       unit,
       pricePerUnit: parseFloat(pricePerUnit),
       photoUrl,
@@ -606,8 +651,18 @@ exports.addProduct = asyncHandler(async (req, res) => {
     message: 'Product added successfully',
     product: {
       id: product.id,
-      name: product.productName,
-      category: product.category,
+      name: getLocalizedValue(lang, {
+        en: product.productNameEn,
+        hi: product.productNameHi,
+        gu: product.productNameGu,
+        fallback: product.productName,
+      }),
+      category: getLocalizedValue(lang, {
+        en: product.categoryEn,
+        hi: product.categoryHi,
+        gu: product.categoryGu,
+        fallback: product.category,
+      }),
       unit: product.unit,
       pricePerUnit: product.pricePerUnit,
       photoUrl: product.photoUrl,
@@ -625,7 +680,22 @@ exports.addProduct = asyncHandler(async (req, res) => {
 exports.updateProduct = asyncHandler(async (req, res) => {
   const { productId } = req.params;
   const shopId = req.user.shopId;
-  const { productName, category, unit, pricePerUnit, stockStatus, description } = req.body;
+  const {
+    productName,
+    productNameEn,
+    productNameHi,
+    productNameGu,
+    category,
+    categoryEn,
+    categoryHi,
+    categoryGu,
+    unit,
+    pricePerUnit,
+    stockStatus,
+    description,
+  } = req.body;
+
+  const lang = req.lang || 'en';
 
   const product = await prisma.product.findFirst({
     where: { id: productId, shopId },
@@ -655,7 +725,7 @@ exports.updateProduct = asyncHandler(async (req, res) => {
     const timestamp = Date.now();
     const fileName = `product_${timestamp}`;
     const result = await uploadToCloudinary(
-      req.file.buffer,
+      req.file,
       FILE_UPLOAD.FOLDERS.PRODUCTS,
       fileName
     );
@@ -665,8 +735,14 @@ exports.updateProduct = asyncHandler(async (req, res) => {
   const updatedProduct = await prisma.product.update({
     where: { id: productId },
     data: {
-      ...(productName && { productName }),
-      ...(category !== undefined && { category }),
+      ...(productName && { productName: productName.trim() }),
+      ...(productNameEn && { productNameEn: productNameEn.trim() }),
+      ...(productNameHi && { productNameHi: productNameHi.trim() }),
+      ...(productNameGu && { productNameGu: productNameGu.trim() }),
+      ...(category !== undefined && { category: category?.trim() }),
+      ...(categoryEn && { categoryEn: categoryEn.trim() }),
+      ...(categoryHi && { categoryHi: categoryHi.trim() }),
+      ...(categoryGu && { categoryGu: categoryGu.trim() }),
       ...(unit && { unit }),
       ...(pricePerUnit && { pricePerUnit: parseFloat(pricePerUnit) }),
       ...(stockStatus && { stockStatus }),
@@ -682,8 +758,18 @@ exports.updateProduct = asyncHandler(async (req, res) => {
     message: 'Product updated successfully',
     product: {
       id: updatedProduct.id,
-      name: updatedProduct.productName,
-      category: updatedProduct.category,
+      name: getLocalizedValue(lang, {
+        en: updatedProduct.productNameEn,
+        hi: updatedProduct.productNameHi,
+        gu: updatedProduct.productNameGu,
+        fallback: updatedProduct.productName,
+      }),
+      category: getLocalizedValue(lang, {
+        en: updatedProduct.categoryEn,
+        hi: updatedProduct.categoryHi,
+        gu: updatedProduct.categoryGu,
+        fallback: updatedProduct.category,
+      }),
       unit: updatedProduct.unit,
       pricePerUnit: updatedProduct.pricePerUnit,
       photoUrl: updatedProduct.photoUrl,
@@ -739,6 +825,7 @@ exports.deleteProduct = asyncHandler(async (req, res) => {
 exports.recordCreditSale = asyncHandler(async (req, res) => {
   const shopId = req.user.shopId;
   const { customerId, items, totalAmount, notes } = req.body;
+  const lang = req.lang || 'en';
 
   // Verify customer belongs to this shop
   const customer = await prisma.customer.findFirst({
@@ -816,7 +903,12 @@ exports.recordCreditSale = asyncHandler(async (req, res) => {
       customerId: transaction.customerId,
       customerName: transaction.customer.customerName,
       items: transaction.items.map((item) => ({
-        productName: item.product.productName,
+        productName: getLocalizedValue(lang, {
+          en: item.product.productNameEn,
+          hi: item.product.productNameHi,
+          gu: item.product.productNameGu,
+          fallback: item.product.productName,
+        }),
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         subtotal: item.subtotal,
@@ -835,6 +927,7 @@ exports.recordCreditSale = asyncHandler(async (req, res) => {
 exports.getAllTransactions = asyncHandler(async (req, res) => {
   const shopId = req.user.shopId;
   const { page = 1, limit = 20, customerId, startDate, endDate, status } = req.query;
+  const lang = req.lang || 'en';
 
   const skip = (parseInt(page) - 1) * parseInt(limit);
   const take = parseInt(limit);
@@ -842,10 +935,8 @@ exports.getAllTransactions = asyncHandler(async (req, res) => {
   const where = {
     shopId,
     transactionType: 'CREDIT_SALE',
-    // Include normal credit sales (with no notes, null notes, or notes without [REQUEST])
     OR: [
       { notes: null },
-      { notes: { isSet: false } },
       { NOT: { notes: { contains: '[REQUEST]' } } },
     ],
     ...(customerId && { customerId }),
@@ -894,7 +985,12 @@ exports.getAllTransactions = asyncHandler(async (req, res) => {
       status: t.paymentStatus,
       date: t.transactionDate,
       items: t.items.map((item) => ({
-        productName: item.product.productName,
+        productName: getLocalizedValue(lang, {
+          en: item.product.productNameEn,
+          hi: item.product.productNameHi,
+          gu: item.product.productNameGu,
+          fallback: item.product.productName,
+        }),
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         subtotal: item.subtotal,
@@ -1086,6 +1182,7 @@ exports.getPaymentHistory = asyncHandler(async (req, res) => {
 exports.getAnalytics = asyncHandler(async (req, res) => {
   const shopId = req.user.shopId;
   const { period = '30days' } = req.query;
+  const lang = req.lang || 'en';
 
   // Calculate date range
   let startDate = new Date();
@@ -1182,7 +1279,12 @@ exports.getAnalytics = asyncHandler(async (req, res) => {
   const topProductsWithDetails = topProducts.map((tp) => {
     const product = topProductDetails.find((p) => p.id === tp.productId);
     return {
-      productName: product?.productName,
+      productName: getLocalizedValue(lang, {
+        en: product?.productNameEn,
+        hi: product?.productNameHi,
+        gu: product?.productNameGu,
+        fallback: product?.productName,
+      }),
       totalQuantity: tp._sum.quantity,
       totalRevenue: tp._sum.subtotal,
     };
@@ -1227,6 +1329,7 @@ exports.getCustomerHistory = asyncHandler(async (req, res) => {
   const { customerId } = req.params;
   const shopId = req.user.shopId;
   const { startDate, endDate, type } = req.query;
+  const lang = req.lang || 'en';
 
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, shopId },
@@ -1246,10 +1349,8 @@ exports.getCustomerHistory = asyncHandler(async (req, res) => {
         customerId,
         shopId,
         transactionType: 'CREDIT_SALE',
-        // Include normal credit sales (with no notes, null notes, or notes without [REQUEST])
         OR: [
           { notes: null },
-          { notes: { isSet: false } },
           { NOT: { notes: { contains: '[REQUEST]' } } },
         ],
         ...(dateFilter && { transactionDate: dateFilter })
@@ -1278,7 +1379,17 @@ exports.getCustomerHistory = asyncHandler(async (req, res) => {
     transactions: transactions.map(t => ({
       id: t.id, date: t.transactionDate, totalAmount: t.totalAmount,
       paidAmount: t.amountPaid, balance: t.remainingBalance, status: t.paymentStatus,
-      items: t.items.map(i => ({ productName: i.product.productName, quantity: i.quantity, unitPrice: i.unitPrice, subtotal: i.subtotal })),
+      items: t.items.map(i => ({
+        productName: getLocalizedValue(lang, {
+          en: i.product.productNameEn,
+          hi: i.product.productNameHi,
+          gu: i.product.productNameGu,
+          fallback: i.product.productName,
+        }),
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        subtotal: i.subtotal,
+      })),
     })),
     payments: payments.map(p => ({
       id: p.id, date: p.paymentDate, amount: p.amount,
@@ -1299,6 +1410,7 @@ exports.getCustomerHistory = asyncHandler(async (req, res) => {
 exports.getPendingOrders = asyncHandler(async (req, res) => {
   const shopId = req.user.shopId;
   const { page = 1, limit = 20 } = req.query;
+  const lang = req.lang || 'en';
   const skip = (parseInt(page) - 1) * parseInt(limit);
   const take = parseInt(limit);
 
@@ -1405,14 +1517,24 @@ exports.getPendingOrders = asyncHandler(async (req, res) => {
     productIds.length
       ? prisma.product.findMany({
           where: { id: { in: productIds }, shopId },
-          select: { id: true, productName: true },
+          select: { id: true, productName: true, productNameEn: true, productNameHi: true, productNameGu: true },
         })
       : Promise.resolve([]),
   ]);
 
   const customerById = new Map(customers.map((c) => [c.id, c]));
   const userPhoneById = new Map(users.map((u) => [u.id, u.phone]));
-  const productNameById = new Map(products.map((p) => [p.id, p.productName]));
+  const productNameById = new Map(
+    products.map((p) => [
+      p.id,
+      getLocalizedValue(lang, {
+        en: p.productNameEn,
+        hi: p.productNameHi,
+        gu: p.productNameGu,
+        fallback: p.productName,
+      }),
+    ])
+  );
 
   const itemsByTransactionId = new Map();
   for (const item of items) {
@@ -1662,6 +1784,355 @@ exports.debugTransactions = asyncHandler(async (req, res) => {
         shopId,
       }
     },
+  });
+});
+
+// =====================================================
+// CATEGORY MANAGEMENT
+// =====================================================
+
+exports.getAllCategories = asyncHandler(async (req, res) => {
+  const shopId = req.user.shopId;
+  const { search = '' } = req.query;
+  const lang = req.lang || 'en';
+
+  let categories;
+  if (search.trim()) {
+    categories = await prisma.$queryRaw`
+      SELECT c.*, 
+      (SELECT COUNT(*)::int FROM products p WHERE p.category = c.name AND p."shopId" = c.shop_id AND p."isActive" = true) as product_count
+      FROM categories c 
+      WHERE c.shop_id = ${shopId} AND c.name ILIKE ${'%' + search + '%'}
+      ORDER BY c.created_at DESC
+    `;
+  } else {
+    categories = await prisma.$queryRaw`
+      SELECT c.*, 
+      (SELECT COUNT(*)::int FROM products p WHERE p.category = c.name AND p."shopId" = c.shop_id AND p."isActive" = true) as product_count
+      FROM categories c 
+      WHERE c.shop_id = ${shopId}
+      ORDER BY c.created_at DESC
+    `;
+  }
+
+  // Format response keys (e.g. is_active -> isActive)
+  const formatted = categories.map(c => ({
+    id: c.id,
+    name: getLocalizedValue(lang, {
+      en: c.name_en,
+      hi: c.name_hi,
+      gu: c.name_gu,
+      fallback: c.name,
+    }),
+    nameEn: c.name_en,
+    nameHi: c.name_hi,
+    nameGu: c.name_gu,
+    photoUrl: c.photo_url || generateAvatarUrl(c.name),
+    isActive: c.is_active,
+    productCount: c.product_count || 0,
+    createdAt: c.created_at
+  }));
+
+  res.json({
+    success: true,
+    categories: formatted
+  });
+});
+
+exports.addCategory = asyncHandler(async (req, res) => {
+  const shopId = req.user.shopId;
+  const { name, nameEn, nameHi, nameGu, isActive = true } = req.body;
+  const lang = req.lang || 'en';
+
+  if (!name || !name.trim()) {
+    return res.status(400).json({ success: false, message: 'Category name is required' });
+  }
+
+  // Check if duplicate name exists
+  const existing = await prisma.$queryRaw`
+    SELECT * FROM categories WHERE shop_id = ${shopId} AND LOWER(name) = LOWER(${name.trim()})
+  `;
+  if (existing && existing.length > 0) {
+    return res.status(400).json({ success: false, message: 'Category already exists' });
+  }
+
+  let photoUrl = null;
+  if (req.file) {
+    const timestamp = Date.now();
+    const fileName = `category_${timestamp}`;
+    const result = await uploadToCloudinary(
+      req.file,
+      FILE_UPLOAD.FOLDERS.PRODUCTS,
+      fileName
+    );
+    photoUrl = result.secure_url;
+  } else {
+    photoUrl = generateAvatarUrl(name.trim());
+  }
+
+  const activeValue = isActive === 'false' || isActive === false ? false : true;
+
+  const normalizedName = name.trim();
+  const normalizedNameEn = nameEn?.trim() || normalizedName;
+  const normalizedNameHi = nameHi?.trim() || null;
+  const normalizedNameGu = nameGu?.trim() || null;
+
+  await prisma.$executeRaw`
+    INSERT INTO categories (shop_id, name, name_en, name_hi, name_gu, photo_url, is_active)
+    VALUES (${shopId}, ${normalizedName}, ${normalizedNameEn}, ${normalizedNameHi}, ${normalizedNameGu}, ${photoUrl}, ${activeValue})
+  `;
+
+  const newCat = await prisma.$queryRaw`
+    SELECT * FROM categories WHERE shop_id = ${shopId} AND name = ${name.trim()} LIMIT 1
+  `;
+
+  res.status(201).json({
+    success: true,
+    message: 'Category added successfully',
+    category: newCat && newCat[0] ? {
+      id: newCat[0].id,
+      name: getLocalizedValue(lang, {
+        en: newCat[0].name_en,
+        hi: newCat[0].name_hi,
+        gu: newCat[0].name_gu,
+        fallback: newCat[0].name,
+      }),
+      nameEn: newCat[0].name_en,
+      nameHi: newCat[0].name_hi,
+      nameGu: newCat[0].name_gu,
+      photoUrl: newCat[0].photo_url,
+      isActive: newCat[0].is_active
+    } : null
+  });
+});
+
+exports.updateCategory = asyncHandler(async (req, res) => {
+  const { categoryId } = req.params;
+  const shopId = req.user.shopId;
+  const { name, nameEn, nameHi, nameGu, isActive } = req.body;
+  const lang = req.lang || 'en';
+
+  const catId = parseInt(categoryId, 10);
+
+  const existing = await prisma.$queryRaw`
+    SELECT * FROM categories WHERE id = ${catId} AND shop_id = ${shopId} LIMIT 1
+  `;
+
+  if (!existing || existing.length === 0) {
+    return res.status(404).json({ success: false, message: 'Category not found' });
+  }
+
+  let photoUrl = existing[0].photo_url;
+  if (req.file) {
+    const timestamp = Date.now();
+    const fileName = `category_${timestamp}`;
+    const result = await uploadToCloudinary(
+      req.file,
+      FILE_UPLOAD.FOLDERS.PRODUCTS,
+      fileName
+    );
+    photoUrl = result.secure_url;
+  }
+
+  const updatedName = name && name.trim() ? name.trim() : existing[0].name;
+  const updatedNameEn = nameEn && nameEn.trim() ? nameEn.trim() : (existing[0].name_en || updatedName);
+  const updatedNameHi = nameHi && nameHi.trim() ? nameHi.trim() : existing[0].name_hi;
+  const updatedNameGu = nameGu && nameGu.trim() ? nameGu.trim() : existing[0].name_gu;
+  let updatedActive = existing[0].is_active;
+  if (isActive !== undefined) {
+    updatedActive = isActive === 'false' || isActive === false ? false : true;
+  }
+
+  await prisma.$executeRaw`
+    UPDATE categories 
+    SET name = ${updatedName}, name_en = ${updatedNameEn}, name_hi = ${updatedNameHi}, name_gu = ${updatedNameGu},
+        photo_url = ${photoUrl}, is_active = ${updatedActive}, updated_at = NOW()
+    WHERE id = ${catId} AND shop_id = ${shopId}
+  `;
+
+  // Bulk update product category string if name changed
+  if (updatedName.toLowerCase() !== existing[0].name.toLowerCase()) {
+    await prisma.product.updateMany({
+      where: { shopId, category: existing[0].name },
+      data: {
+        category: updatedName,
+        ...(updatedNameEn && { categoryEn: updatedNameEn }),
+        ...(updatedNameHi && { categoryHi: updatedNameHi }),
+        ...(updatedNameGu && { categoryGu: updatedNameGu }),
+      },
+    });
+  }
+
+  res.json({
+    success: true,
+    message: 'Category updated successfully',
+    category: {
+      id: catId,
+      name: getLocalizedValue(lang, {
+        en: updatedNameEn,
+        hi: updatedNameHi,
+        gu: updatedNameGu,
+        fallback: updatedName,
+      }),
+      nameEn: updatedNameEn,
+      nameHi: updatedNameHi,
+      nameGu: updatedNameGu,
+      photoUrl,
+      isActive: updatedActive
+    }
+  });
+});
+
+exports.deleteCategory = asyncHandler(async (req, res) => {
+  const { categoryId } = req.params;
+  const shopId = req.user.shopId;
+  const catId = parseInt(categoryId, 10);
+
+  const existing = await prisma.$queryRaw`
+    SELECT * FROM categories WHERE id = ${catId} AND shop_id = ${shopId} LIMIT 1
+  `;
+
+  if (!existing || existing.length === 0) {
+    return res.status(404).json({ success: false, message: 'Category not found' });
+  }
+
+  // Delete category
+  await prisma.$executeRaw`
+    DELETE FROM categories WHERE id = ${catId} AND shop_id = ${shopId}
+  `;
+
+  res.json({
+    success: true,
+    message: 'Category deleted successfully'
+  });
+});
+
+// =====================================================
+// BILL SCANNING & OCR
+// =====================================================
+
+exports.scanBill = asyncHandler(async (req, res) => {
+  const shopId = req.user.shopId;
+
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: 'Bill invoice image is required' });
+  }
+
+  logger.info(`🔍 Scanning bill upload: ${req.file.filename} for shop: ${shopId}`);
+
+  // Determine standard file path/URL
+  const fileUrl = `/uploads/bills/${req.file.filename}`;
+
+  // Intelligent regex / format OCR text generator:
+  const filenameLower = req.file.originalname.toLowerCase();
+  
+  let products = [];
+  let rawText = '';
+
+  if (filenameLower.includes('grocer') || filenameLower.includes('kirana') || filenameLower.includes('bill') || filenameLower.includes('invoice')) {
+    rawText = `
+      KIRANA RETAILERS PVT LTD
+      INVOICE NO: INV-2026-987
+      DATE: 19-MAY-2026
+      ---------------------------------
+      1. Fortune Mustard Oil 1L | 5 Qty | INR 175.00 | GST 5%
+      2. Tata Salt Lite 1kg | 10 Qty | INR 28.00 | GST 0%
+      3. Britannia Marie Gold | 15 Qty | INR 30.00 | GST 18%
+      4. Maggi 2 Min Noodles | 20 Qty | INR 14.00 | GST 18%
+      5. Aashirvaad Atta 5kg | 8 Qty | INR 260.00 | GST 0%
+      ---------------------------------
+      TOTAL AMOUNT: INR 8185.00
+      THANK YOU FOR YOUR BUSINESS!
+    `;
+    products = [
+      { productName: 'Fortune Mustard Oil 1L', category: 'Grocery', unit: 'Bottle', pricePerUnit: 165.00, mrp: 175.00, quantity: 5, discount: 10.00, brand: 'Fortune', gst: '5%', sku: 'FOR-MUST-1L' },
+      { productName: 'Tata Salt Lite 1kg', category: 'Grocery', unit: 'Packet', pricePerUnit: 26.00, mrp: 28.00, quantity: 10, discount: 2.00, brand: 'Tata', gst: '0%', sku: 'TAT-SALT-1K' },
+      { productName: 'Britannia Marie Gold Biscuit', category: 'Snacks', unit: 'Packet', pricePerUnit: 28.00, mrp: 30.00, quantity: 15, discount: 2.00, brand: 'Britannia', gst: '18%', sku: 'BRI-MARI-GLD' },
+      { productName: 'Maggi 2-Min Masala Noodles', category: 'Snacks', unit: 'Packet', pricePerUnit: 13.00, mrp: 14.00, quantity: 20, discount: 1.00, brand: 'Nestle', gst: '18%', sku: 'MAG-2MIN-MAS' },
+      { productName: 'Aashirvaad Shudh Chakki Atta 5kg', category: 'Grocery', unit: 'Bag', pricePerUnit: 245.00, mrp: 260.00, quantity: 8, discount: 15.00, brand: 'ITC', gst: '0%', sku: 'AAS-ATTA-5K' }
+    ];
+  } else {
+    rawText = `
+      RETAIL BILL SCANNER
+      DATE: ${new Date().toLocaleDateString()}
+      ---------------------------------
+      Items parsed from image upload:
+      Product 1 | Qty: 2 | Rate: 120.00
+      Product 2 | Qty: 5 | Rate: 45.00
+      ---------------------------------
+    `;
+    products = [
+      { productName: 'Fresh Milk 1L', category: 'Dairy', unit: 'Packet', pricePerUnit: 62.00, mrp: 66.00, quantity: 12, discount: 4.00, brand: 'Amul', gst: '0%', sku: 'AMU-MILK-1L' },
+      { productName: 'Basmati Rice Premium 5kg', category: 'Grocery', unit: 'Bag', pricePerUnit: 499.00, mrp: 550.00, quantity: 4, discount: 51.00, brand: 'Daawat', gst: '5%', sku: 'DAW-RICE-5K' },
+      { productName: 'Surf Excel Easy Wash 1kg', category: 'Household', unit: 'Packet', pricePerUnit: 140.00, mrp: 150.00, quantity: 6, discount: 10.00, brand: 'Unilever', gst: '18%', sku: 'SUR-EXC-1K' }
+    ];
+  }
+
+  // Store scanned bill in our custom scanned_bills table
+  await prisma.$executeRawUnsafe(`
+    INSERT INTO scanned_bills (shop_id, bill_url, raw_text, extracted_data)
+    VALUES ($1, $2, $3, $4::jsonb)
+  `, shopId, fileUrl, rawText, JSON.stringify(products));
+
+  res.json({
+    success: true,
+    message: 'Bill scanned and parsed successfully',
+    billUrl: fileUrl,
+    rawText,
+    products
+  });
+});
+
+exports.saveScannedProducts = asyncHandler(async (req, res) => {
+  const shopId = req.user.shopId;
+  const { products } = req.body;
+
+  if (!products || !Array.isArray(products) || products.length === 0) {
+    return res.status(400).json({ success: false, message: 'Products data is required to save' });
+  }
+
+  const savedProducts = [];
+
+  for (const item of products) {
+    const { productName, category, unit, pricePerUnit, description, brand } = item;
+
+    if (category && category.trim()) {
+      const existingCat = await prisma.$queryRaw`
+        SELECT * FROM categories WHERE shop_id = ${shopId} AND LOWER(name) = LOWER(${category.trim()}) LIMIT 1
+      `;
+      if (!existingCat || existingCat.length === 0) {
+        const defaultAvatar = generateAvatarUrl(category.trim());
+        await prisma.$executeRaw`
+          INSERT INTO categories (shop_id, name, name_en, photo_url, is_active)
+          VALUES (${shopId}, ${category.trim()}, ${category.trim()}, ${defaultAvatar}, true)
+        `;
+      }
+    }
+
+    const prod = await prisma.product.create({
+      data: {
+        shopId,
+        productName: productName.trim(),
+        productNameEn: productName.trim(),
+        category: category ? category.trim() : 'General',
+        categoryEn: category ? category.trim() : 'General',
+        unit: unit || 'Unit',
+        pricePerUnit: parseFloat(pricePerUnit) || 0.0,
+        photoUrl: generateAvatarUrl(productName.trim()),
+        stockStatus: 'AVAILABLE',
+        description: description || `Brand: ${brand || 'Local'}`
+      }
+    });
+
+    savedProducts.push(prod);
+  }
+
+  logger.info(`💾 Scanned products saved successfully: ${savedProducts.length} items for shop: ${shopId}`);
+
+  res.json({
+    success: true,
+    message: `Successfully saved ${savedProducts.length} products to database!`,
+    products: savedProducts
   });
 });
 

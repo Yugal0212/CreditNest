@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { ROLES } = require('../config/constants');
+const { ROLES, JWT } = require('../config/constants');
 
 /**
  * Generate JWT token
@@ -12,13 +12,15 @@ const generateToken = (userId, email, role, additionalData = {}) => {
     ...additionalData,
   };
 
-  let expiry = process.env.JWT_EXPIRY || '30d';
+  let expiry = process.env.JWT_EXPIRY || JWT.SHOP_OWNER_EXPIRY;
 
   // Set expiry based on role
   if (role === ROLES.ADMIN) {
-    expiry = '7d';
-  } else if (role === ROLES.SHOP_OWNER || role === ROLES.CUSTOMER) {
-    expiry = '30d';
+    expiry = JWT.ADMIN_EXPIRY;
+  } else if (role === ROLES.CUSTOMER) {
+    expiry = JWT.CUSTOMER_EXPIRY;
+  } else if (role === ROLES.SHOP_OWNER) {
+    expiry = JWT.SHOP_OWNER_EXPIRY;
   }
 
   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: expiry });

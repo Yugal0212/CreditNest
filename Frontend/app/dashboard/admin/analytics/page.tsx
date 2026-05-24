@@ -4,7 +4,9 @@ import { DashboardLayout } from '@/components/DashboardLayout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { adminAPI } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
-import { Zap, TrendingUp, BarChart, Users, Store, ArrowUpRight, DollarSign } from 'lucide-react';
+import { Zap, TrendingUp, BarChart as BarChartIcon, Users, Store, ArrowUpRight, DollarSign } from 'lucide-react';
+import { AdminAnalyticsSkeleton } from '@/components/skeletons/AdminSkeletons';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 import { useState, useEffect } from 'react';
 
@@ -53,7 +55,7 @@ export default function AdminAnalyticsPage() {
                 <Zap className="w-8 h-8 text-primary dark:text-indigo-400" /> Platform Analytics
               </h1>
               <p className="text-muted-foreground mt-1 font-medium">
-                In-depth financial insights and growth metrics across SCMS.
+                In-depth financial insights and growth metrics across CreditNest.
               </p>
             </div>
             <div className="flex bg-card text-card-foreground border border-border shadow-sm rounded-xl border border-border/50 p-1">
@@ -77,16 +79,10 @@ export default function AdminAnalyticsPage() {
           </div>
 
           {isLoading ? (
-             <div className="text-center py-20">
-               <svg className="animate-spin h-10 w-10 text-primary dark:text-indigo-400 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-              </svg>
-              <p className="text-muted-foreground font-medium">Generating reports...</p>
-            </div>
+            <AdminAnalyticsSkeleton />
           ) : !data ? (
-             <div className="text-center py-20 glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all">
-               <p className="text-muted-foreground">Analytics unavailable for this period.</p>
+             <div className="text-center py-20 glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all rounded-2xl">
+               <p className="text-muted-foreground font-medium">Analytics unavailable for this period.</p>
              </div>
           ) : (
             <div className="space-y-6">
@@ -110,7 +106,7 @@ export default function AdminAnalyticsPage() {
                 <div className="glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all flex flex-col gap-2 relative overflow-hidden group border-indigo-500/20 dark:border-indigo-400/20 dark:border-indigo-500/20 dark:border-indigo-400/20 shadow-lg shadow-indigo-500/20 dark:shadow-indigo-400/20">
                   <div className="absolute -right-4 -top-4 w-24 h-24 bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors rounded-full blur-2xl group-hover:bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors transition-all" />
                   <p className="text-xs font-bold text-primary dark:text-primary dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1">
-                    <BarChart className="w-4 h-4" /> Credit Recovery
+                    <BarChartIcon className="w-4 h-4" /> Credit Recovery
                   </p>
                   <p className="text-4xl font-black text-primary dark:text-primary dark:text-indigo-400">{data.creditRecoveryRate}%</p>
                 </div>
@@ -137,31 +133,27 @@ export default function AdminAnalyticsPage() {
                      </div>
                   </div>
 
-                   <div className="space-y-4">
+                   <div className="h-[250px] w-full mt-4">
                      {data.topShops.length === 0 ? (
-                        <p className="text-center text-sm text-muted-foreground py-10">No revenue data for this period.</p>
+                        <div className="h-full flex items-center justify-center">
+                          <p className="text-center text-sm text-muted-foreground">No revenue data for this period.</p>
+                        </div>
                      ) : (
-                        data.topShops.map((shop, i) => (
-                          <div key={i} className="flex items-center gap-4 group">
-                             <div className="w-8 flex-shrink-0 text-center font-bold text-muted-foreground group-hover:text-primary dark:text-indigo-400 transition-colors">
-                               #{i + 1}
-                             </div>
-                             <div className="flex-1 min-w-0">
-                                <div className="flex justify-between items-end mb-1">
-                                   <p className="font-bold text-sm text-foreground truncate">{shop.shopName}</p>
-                                   <p className="font-black text-sm text-primary dark:text-primary dark:text-indigo-400">₹{shop.revenue}</p>
-                                </div>
-                                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                                   <div 
-                                    
-                                    
-                                    
-                                     className="h-full bg-primary rounded-full"
-                                   />
-                                </div>
-                             </div>
-                          </div>
-                        ))
+                       <ResponsiveContainer width="100%" height="100%">
+                         <BarChart data={data.topShops} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                           <XAxis dataKey="shopName" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                           <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(val) => `₹${val}`} />
+                           <Tooltip
+                             cursor={{ fill: 'rgba(99, 102, 241, 0.1)' }}
+                             contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}
+                           />
+                           <Bar dataKey="revenue" radius={[6, 6, 0, 0]}>
+                             {data.topShops.map((entry, index) => (
+                               <Cell key={`cell-${index}`} fill={index === 0 ? '#6366f1' : '#a5b4fc'} />
+                             ))}
+                           </Bar>
+                         </BarChart>
+                       </ResponsiveContainer>
                      )}
                    </div>
                 </div>

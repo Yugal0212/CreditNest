@@ -1,12 +1,12 @@
 // Prisma Schema for Smart Credit Management System
-// Database: MongoDB
+// Database: PostgreSQL
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "mongodb"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -14,7 +14,7 @@ datasource db {
 // USER MODEL (Base authentication)
 // =====================================================
 model User {
-  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  id         Int       @id @default(autoincrement())
   email      String?   @unique
   phone      String?   @unique
   role       Role
@@ -42,8 +42,8 @@ enum Role {
 // ADMIN MODEL
 // =====================================================
 model Admin {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId       String   @unique @db.ObjectId
+  id           Int      @id @default(autoincrement())
+  userId       Int      @unique
   name         String
   passwordHash String
   avatarUrl    String?
@@ -58,7 +58,7 @@ model Admin {
 // SHOP MODEL
 // =====================================================
 model Shop {
-  id        String     @id @default(auto()) @map("_id") @db.ObjectId
+  id        Int        @id @default(autoincrement())
   shopName  String
   address   String
   city      String?
@@ -90,9 +90,9 @@ enum ShopStatus {
 // SHOP OWNER MODEL
 // =====================================================
 model ShopOwner {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId       String   @unique @db.ObjectId
-  shopId       String   @unique @db.ObjectId
+  id           Int      @id @default(autoincrement())
+  userId       Int      @unique
+  shopId       Int      @unique
   ownerName    String
   passwordHash String?
   avatarUrl    String?
@@ -108,9 +108,9 @@ model ShopOwner {
 // CUSTOMER MODEL
 // =====================================================
 model Customer {
-  id            String         @id @default(auto()) @map("_id") @db.ObjectId
-  userId        String         @unique @db.ObjectId
-  shopId        String         @db.ObjectId
+  id            Int            @id @default(autoincrement())
+  userId        Int            @unique
+  shopId        Int
   customerName  String
   address       String?
   workplace     String?
@@ -144,10 +144,16 @@ enum CustomerStatus {
 // PRODUCT MODEL
 // =====================================================
 model Product {
-  id           String        @id @default(auto()) @map("_id") @db.ObjectId
-  shopId       String        @db.ObjectId
+  id           Int           @id @default(autoincrement())
+  shopId       Int
   productName  String
+  productNameEn String?
+  productNameHi String?
+  productNameGu String?
   category     String?
+  categoryEn   String?
+  categoryHi   String?
+  categoryGu   String?
   unit         String
   pricePerUnit Float
   photoUrl     String?
@@ -165,6 +171,25 @@ model Product {
   @@index([isActive])
 }
 
+// =====================================================
+// CATEGORY MODEL
+// =====================================================
+model Category {
+  id        Int      @id @default(autoincrement())
+  shopId    Int      @map("shop_id")
+  name      String
+  nameEn    String?  @map("name_en")
+  nameHi    String?  @map("name_hi")
+  nameGu    String?  @map("name_gu")
+  photoUrl  String?  @map("photo_url")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+
+  @@map("categories")
+  @@index([shopId])
+}
+
 enum StockStatus {
   AVAILABLE
   LOW_STOCK
@@ -175,9 +200,9 @@ enum StockStatus {
 // TRANSACTION MODEL (Credit Sales)
 // =====================================================
 model Transaction {
-  id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  shopId          String        @db.ObjectId
-  customerId      String        @db.ObjectId
+  id              Int           @id @default(autoincrement())
+  shopId          Int
+  customerId      Int
   transactionType TransactionType
   totalAmount     Float
   paymentStatus   PaymentStatus @default(PENDING)
@@ -198,9 +223,6 @@ model Transaction {
   @@index([transactionDate])
   @@index([paymentStatus])
   @@index([transactionType])
-  @@index([shopId, transactionType, transactionDate])
-  @@index([shopId, paymentStatus])
-  @@index([shopId, transactionType, notes])
 }
 
 enum TransactionType {
@@ -218,9 +240,9 @@ enum PaymentStatus {
 // TRANSACTION ITEMS (Products in each sale)
 // =====================================================
 model TransactionItem {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  transactionId String   @db.ObjectId
-  productId     String   @db.ObjectId
+  id            Int      @id @default(autoincrement())
+  transactionId Int
+  productId     Int
   quantity      Float
   unitPrice     Float
   subtotal      Float
@@ -238,10 +260,10 @@ model TransactionItem {
 // PAYMENT MODEL
 // =====================================================
 model Payment {
-  id            String        @id @default(auto()) @map("_id") @db.ObjectId
-  transactionId String?       @db.ObjectId
-  customerId    String        @db.ObjectId
-  shopId        String        @db.ObjectId
+  id            Int           @id @default(autoincrement())
+  transactionId Int?
+  customerId    Int
+  shopId        Int
   amount        Float
   paymentMethod PaymentMethod
   paymentDate   DateTime      @default(now())
@@ -270,12 +292,13 @@ enum PaymentMethod {
 // OTP VERIFICATION (Temporary storage)
 // =====================================================
 model OTPVerification {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  id         Int      @id @default(autoincrement())
   identifier String
   otp        String
   otpType    OTPType
   attempts   Int      @default(0)
   isVerified Boolean  @default(false)
+  lockedUntil DateTime?
   expiresAt  DateTime
   createdAt  DateTime @default(now())
 
@@ -291,8 +314,8 @@ enum OTPType {
 // NOTIFICATION MODEL (SMS/Email logs)
 // =====================================================
 model Notification {
-  id        String             @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String?            @db.ObjectId
+  id        Int                @id @default(autoincrement())
+  userId    Int?
   type      NotificationType
   recipient String
   subject   String?
@@ -321,8 +344,8 @@ enum NotificationStatus {
 // AUDIT LOG (System activity tracking)
 // =====================================================
 model AuditLog {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId     String?  @db.ObjectId
+  id         Int      @id @default(autoincrement())
+  userId     Int?
   action     String
   entityType String?
   entityId   String?
@@ -334,4 +357,20 @@ model AuditLog {
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@map("audit_logs")
+}
+
+// =====================================================
+// API LOG (HTTP Traffic tracking)
+// =====================================================
+model ApiLog {
+  id           Int      @id @default(autoincrement())
+  method       String
+  path         String
+  ipAddress    String?
+  userAgent    String?
+  statusCode   Int?
+  responseTime Int?     // in ms
+  createdAt    DateTime @default(now())
+
+  @@map("api_logs")
 }

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  LayoutGrid, Package, Users, History, ShoppingBag, User, BarChart2,
+  LayoutGrid, Package, Users, History, ShoppingBag, User, BarChart2, FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,6 +16,7 @@ const getNavItems = () => ({
     { href: '/dashboard/admin/shops',     icon: Package,     label: 'Shops'    },
     { href: '/dashboard/admin/users',     icon: Users,       label: 'Users'    },
     { href: '/dashboard/admin/analytics', icon: BarChart2,   label: 'Analytics'},
+    { href: '/dashboard/admin/logs',      icon: FileText,    label: 'Logs'     },
     { href: '/dashboard/profile',         icon: User,        label: 'Profile'  },
   ],
   shop_owner: [
