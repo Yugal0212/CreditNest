@@ -16,6 +16,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTranslation } from 'react-i18next';
+import useSWR from 'swr';
+import Image from 'next/image';
 
 type CartItem = { productId: string; quantity: number; unitPrice: number; name: string; unit: string };
 
@@ -58,7 +60,6 @@ export default function ShopOwnerProducts() {
   const { user } = useAuth();
   const { language } = useLanguage();
   const { t } = useTranslation();
-  const [products, setProducts] = useState<Product[]>([]);
   
   // Scanning States
   const [showScanModal, setShowScanModal] = useState(false);
@@ -69,24 +70,52 @@ export default function ShopOwnerProducts() {
   const [rawOcrText, setRawOcrText] = useState('');
   const [extractedProducts, setExtractedProducts] = useState<ScannedProduct[]>([]);
   const [isSavingScan, setIsSavingScan] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [categoriesList, setCategoriesList] = useState<any[]>([]);
 
+  // Use SWR for Categories
+  const { data: categoriesRes } = useSWR(
+    ['shopOwnerCategories', language],
+    () => shopOwnerAPI.getCategories().then((res: any) => res.data.categories || []),
+    { fallbackData: [] }
+  );
+  const categoriesList = categoriesRes || [];
+
+  // Handle Search Debounce
   useEffect(() => {
-    const fetchCategoriesList = async () => {
-      try {
-        const response = await shopOwnerAPI.getCategories();
-        setCategoriesList(response.data.categories || []);
-      } catch (e) {
-        console.error('Failed to load categories list', e);
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1); // Reset page on search
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  // Use SWR for Products
+  const { data: productsData, isLoading, mutate: mutateProducts } = useSWR(
+    ['shopOwnerProducts', page, categoryFilter, debouncedSearch, language],
+    async () => {
+      // If we have a debounced search, we fetch 100 items (or use a dedicated search endpoint)
+      if (debouncedSearch) {
+        const res = await shopOwnerAPI.getProducts({ page: 1, limit: 100, category: categoryFilter || undefined });
+        const filtered = res.data.products?.filter((p: Product) =>
+          p.name.toLowerCase().includes(debouncedSearch.toLowerCase())
+        ) || [];
+        return { products: filtered, totalPages: 1 };
+      } else {
+        const res = await shopOwnerAPI.getProducts({ page, limit: 20, category: categoryFilter || undefined });
+        return {
+          products: res.data.products || [],
+          totalPages: res.data.pagination?.totalPages || 1
+        };
       }
-    };
-    fetchCategoriesList();
-  }, [language]);
+    },
+    { fallbackData: { products: [], totalPages: 1 } }
+  );
+
+  const products = productsData?.products || [];
+  const totalPages = productsData?.totalPages || 1;
 
   // Cart state (saved to localStorage) - shop owner specific
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -147,7 +176,7 @@ export default function ShopOwnerProducts() {
         toast({ title: 'Success', description: 'Product added' });
       }
       setShowAddModal(false);
-      fetchProducts();
+      mutateProducts(); // Instantly revalidate using SWR
     } catch (err: any) {
       toast({ title: 'Error', description: err.response?.data?.message || 'Failed to save', variant: 'destructive' });
     } finally {
@@ -185,73 +214,7 @@ export default function ShopOwnerProducts() {
     }
   };
 
-  useEffect(() => {
-    fetchProducts();
-  }, [page, categoryFilter, language]);
-
   // Load cart from localStorage on mount - shop owner specific
-  useEffect(() => {
-    if (!user?.id) return;
-    
-    // Clear old generic cart key if it exists
-    const oldCart = localStorage.getItem('shopOwnerCart');
-    if (oldCart) {
-      localStorage.removeItem('shopOwnerCart');
-      console.log('Cleared old generic cart data');
-    }
-    
-    const cartKey = getCartKey();
-    const savedCart = localStorage.getItem(cartKey);
-    
-    if (savedCart) {
-      try {
-        const parsedCart = JSON.parse(savedCart);
-        setCart(parsedCart);
-        console.log('Loaded cart for user:', user.id, parsedCart);
-      } catch (e) {
-        console.error('Failed to parse cart:', e);
-        localStorage.removeItem(cartKey);
-      }
-    }
-  }, [user?.id]);
-
-  const fetchProducts = async () => {
-    try {
-      setIsLoading(true);
-      const response = await shopOwnerAPI.getProducts({ page, limit: 20, category: categoryFilter || undefined });
-      setProducts(response.data.products || []);
-      setTotalPages(response.data.pagination?.totalPages || 1);
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.response?.data?.message || 'Failed to load products', variant: 'destructive' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      if (search) {
-        handleSearch();
-      } else {
-        fetchProducts();
-      }
-    }, 500);
-    return () => clearTimeout(delayDebounceFn);
-  }, [search, language]);
-
-  const handleSearch = async () => {
-    if (!search.trim()) { fetchProducts(); return; }
-    try {
-      setIsLoading(true);
-      const response = await shopOwnerAPI.getProducts({ page: 1, limit: 100, category: categoryFilter || undefined });
-      const filtered = response.data.products?.filter((p: Product) =>
-        p.name.toLowerCase().includes(search.toLowerCase())
-      ) || [];
-      setProducts(filtered);
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.response?.data?.message || 'Search failed', variant: 'destructive' });
-    } finally { setIsLoading(false); }
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -268,7 +231,7 @@ export default function ShopOwnerProducts() {
     try {
       await shopOwnerAPI.deleteProduct(productId);
       toast({ title: 'Success', description: 'Product deleted' });
-      fetchProducts();
+      mutateProducts();
     } catch (err: any) {
       toast({ title: 'Error', description: err.response?.data?.message || 'Failed to delete' });
     }
@@ -426,7 +389,7 @@ export default function ShopOwnerProducts() {
       setShowScanModal(false);
       
       // Auto-refresh main product catalog display!
-      fetchProducts();
+      mutateProducts();
     } catch (err: any) {
       toast({
         title: 'Save Failed',
@@ -458,9 +421,9 @@ export default function ShopOwnerProducts() {
             <div className="flex flex-wrap items-center gap-3">
               <button 
                 onClick={() => setShowScanModal(true)}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-400 font-bold text-sm shadow-sm transition-all"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-700 dark:text-indigo-400 font-bold text-sm shadow-sm transition-all"
               >
-                <Sparkles className="w-4 h-4 text-indigo-400" /> {t('seller_dashboard.scan_bill')}
+                <Sparkles className="w-4 h-4 text-indigo-700 dark:text-indigo-400" /> {t('seller_dashboard.scan_bill')}
               </button>
               <button 
                 onClick={openAddModal}
@@ -500,7 +463,7 @@ export default function ShopOwnerProducts() {
                 <option value="Spices">Spices</option>
                 <option value="Vegetables">Vegetables</option>
                 <option value="Sweeteners">Sweeteners</option>
-                {categoriesList.map(cat => (
+                {categoriesList.map((cat: any) => (
                   <option key={cat.id} value={cat.name}>{cat.name}</option>
                 ))}
               </select>
@@ -536,7 +499,7 @@ export default function ShopOwnerProducts() {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2.5">
               
-                {products.map((product, i) => {
+                {products.map((product: Product, i: number) => {
                   const gradient = categoryColors[product.category || 'General'];
                   const isAvailable = product.stockStatus === 'AVAILABLE';
                   const inCart = cart.find(c => c.productId === product.id);
@@ -582,7 +545,7 @@ export default function ShopOwnerProducts() {
                       {/* Product Image */}
                       <div className={`w-full aspect-square rounded-lg bg-gradient-to-br ${gradient} mb-2 flex items-center justify-center overflow-hidden shadow-md relative`}>
                         {product.photoUrl && product.photoUrl.startsWith('http') ? (
-                          <img src={product.photoUrl} alt={product.name} className="w-full h-full object-cover" />
+                          <Image src={product.photoUrl} alt={product.name} fill sizes="(max-width: 768px) 50vw, 20vw" className="object-cover" />
                         ) : (
                           <Package className="w-5 h-5 text-white/60" />
                         )}
@@ -739,7 +702,7 @@ export default function ShopOwnerProducts() {
                       <label className="text-sm font-bold text-muted-foreground mb-1 block">Category *</label>
                       <select required value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full px-3 py-2.5 rounded-xl border bg-card text-card-foreground border border-border shadow-sm text-sm focus:ring-2 focus:ring-indigo-500/50 dark:ring-indigo-400/50">
                         {Object.keys(categoryColors).map(c => <option key={c} value={c}>{c}</option>)}
-                        {categoriesList.filter(cat => !Object.keys(categoryColors).includes(cat.name)).map(cat => (
+                        {categoriesList.filter((cat: any) => !Object.keys(categoryColors).includes(cat.name)).map((cat: any) => (
                           <option key={cat.id} value={cat.name}>{cat.name}</option>
                         ))}
                       </select>
@@ -941,7 +904,7 @@ export default function ShopOwnerProducts() {
                                       className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:bg-zinc-900 text-indigo-300 font-bold"
                                     >
                                       {Object.keys(categoryColors).map(c => <option key={c} value={c}>{c}</option>)}
-                                      {categoriesList.filter(cat => !Object.keys(categoryColors).includes(cat.name)).map(cat => (
+                                      {categoriesList.filter((cat: any) => !Object.keys(categoryColors).includes(cat.name)).map((cat: any) => (
                                         <option key={cat.id} value={cat.name}>{cat.name}</option>
                                       ))}
                                     </select>

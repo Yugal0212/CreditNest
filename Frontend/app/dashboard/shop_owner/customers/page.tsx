@@ -8,6 +8,7 @@ import {
   CreditCard, Upload, User, Mail, MapPin, Briefcase, AlertCircle
 } from 'lucide-react';
 
+import useSWR from 'swr';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { shopOwnerAPI } from '@/lib/api';
@@ -30,30 +31,33 @@ const statusColors = {
 
 const gradients = ['from-teal-500 to-teal-600','from-teal-500 to-teal-600','from-teal-500 to-teal-600','from-teal-500 to-teal-600','from-teal-500 to-teal-600','from-teal-500 to-teal-600'];
 
-
 export default function ShopOwnerCustomers() {
   const router = useRouter();
   const { language } = useLanguage();
   const { t } = useTranslation();
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-  // Add credit → redirect to dedicated page
+  // Debounce search
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [search]);
 
-  // Payment modal
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'UPI' | 'CARD' | 'BANK_TRANSFER'>('CASH');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [submittingPayment, setSubmittingPayment] = useState(false);
 
-  // Add/Edit Customer modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({ name: '', phone: '', email: '', address: '', workplace: '' });
@@ -62,30 +66,21 @@ export default function ShopOwnerCustomers() {
   const [isSubmittingCustomer, setIsSubmittingCustomer] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  useEffect(() => { fetchCustomers(); }, [page, statusFilter, language]);
+  // SWR Fetching
+  const { data: swrData, mutate, isLoading: isSwrLoading } = useSWR(
+    ['customers', page, statusFilter, debouncedSearch, language],
+    async ([_, p, status, s]) => {
+      const r = await shopOwnerAPI.getCustomers({ page: p, limit: 20, status: status || undefined, search: s?.trim() || undefined });
+      return r.data;
+    },
+    { keepPreviousData: true }
+  );
 
-  useEffect(() => {
-    if (!search.trim()) { fetchCustomers(); return; }
-    const t = setTimeout(async () => {
-      setIsLoading(true);
-      try {
-        const r = await shopOwnerAPI.getCustomers({ search: search.trim(), status: statusFilter || undefined });
-        setCustomers(r.data.customers || []);
-      } catch {} finally { setIsLoading(false); }
-    }, 500);
-    return () => clearTimeout(t);
-  }, [search, statusFilter, language]);
+  const customers: Customer[] = swrData?.customers || [];
+  const totalPages = swrData?.pagination?.totalPages || 1;
+  const isLoading = !swrData && isSwrLoading;
 
-  const fetchCustomers = async () => {
-    setIsLoading(true);
-    try {
-      const r = await shopOwnerAPI.getCustomers({ page, limit: 20, status: statusFilter || undefined });
-      setCustomers(r.data.customers || []);
-      setTotalPages(r.data.pagination?.totalPages || 1);
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.response?.data?.message || 'Failed to load', variant: 'destructive' });
-    } finally { setIsLoading(false); }
-  };
+  const fetchCustomers = () => mutate();
 
   const openAddCredit = (customer: Customer) => {
     router.push(`/dashboard/shop_owner/customers/${customer.id}/add-credit`);
@@ -96,24 +91,40 @@ export default function ShopOwnerCustomers() {
   const handleRecordPayment = async () => {
     if (!selectedCustomer || !paymentAmount) return;
     setSubmittingPayment(true);
+    
+    // Optimistic Update
+    const amount = parseFloat(paymentAmount);
+    mutate(
+      { ...swrData, customers: (swrData?.customers || []).map((c: Customer) => c.id === selectedCustomer.id ? { ...c, creditBalance: Math.max(0, c.creditBalance - amount) } : c) },
+      false
+    );
+
     try {
-      await shopOwnerAPI.recordPayment({ customerId: selectedCustomer.id, amount: parseFloat(paymentAmount), paymentMethod, notes: paymentNotes || undefined });
-      toast({ title: '✅ Payment Recorded!', description: `₹${parseFloat(paymentAmount).toLocaleString()} from ${selectedCustomer.name}` });
+      await shopOwnerAPI.recordPayment({ customerId: selectedCustomer.id, amount, paymentMethod, notes: paymentNotes || undefined });
+      toast({ title: '✅ Payment Recorded!', description: `₹${amount.toLocaleString()} from ${selectedCustomer.name}` });
       setShowPaymentModal(false); setPaymentAmount(''); setPaymentNotes('');
-      fetchCustomers();
+      mutate();
     } catch (e: any) {
       toast({ title: 'Error', description: e.response?.data?.message || 'Failed', variant: 'destructive' });
+      mutate(); // Revert
     } finally { setSubmittingPayment(false); }
   };
 
   const handleDelete = async (customerId: string) => {
+    // Optimistic Update
+    mutate(
+      { ...swrData, customers: (swrData?.customers || []).filter((c: Customer) => c.id !== customerId) },
+      false
+    );
+
     try {
       await shopOwnerAPI.deleteCustomer(customerId);
       toast({ title: 'Deleted', description: 'Customer deleted successfully' });
       setDeleteConfirmId(null);
-      fetchCustomers();
+      mutate();
     } catch (e: any) {
       toast({ title: 'Error', description: e.response?.data?.message || 'Failed to delete', variant: 'destructive' });
+      mutate(); // Revert
     }
   };
 
@@ -150,14 +161,27 @@ export default function ShopOwnerCustomers() {
       };
 
       if (isEditing && selectedCustomer) {
+        // Optimistic Update
+        mutate(
+          { ...swrData, customers: (swrData?.customers || []).map((c: Customer) => c.id === selectedCustomer.id ? { ...c, ...formData } : c) },
+          false
+        );
         await shopOwnerAPI.updateCustomer(selectedCustomer.id, data, onProgress);
         toast({ title: 'Success', description: 'Customer updated' });
       } else {
+        // Optimistic Update
+        const tempId = Math.random().toString(36).substr(2, 9);
+        const tempCustomer = { id: tempId, name: formData.name, phone: formData.phone, email: formData.email, address: formData.address, workplace: formData.workplace, status: 'ACTIVE', creditBalance: 0, totalCredit: 0, totalPaid: 0, joinDate: new Date().toISOString(), avatar: avatarPreview || '' };
+        mutate(
+          { ...swrData, customers: [tempCustomer, ...(swrData?.customers || [])] },
+          false
+        );
         await shopOwnerAPI.addCustomer(data, onProgress);
         toast({ title: 'Success', description: 'Customer added' });
       }
       setShowAddModal(false);
-      fetchCustomers();
+      mutate();
+
     } catch (err: any) {
       toast({ title: 'Error', description: err.response?.data?.message || 'Failed', variant: 'destructive' });
     } finally { 
@@ -235,8 +259,12 @@ export default function ShopOwnerCustomers() {
                     className="glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all hover:border-indigo-500/20 dark:border-indigo-400/20 transition-all group p-4">
                     <div className="flex items-center gap-3">
                       {/* Avatar */}
-                      <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${gradients[i % gradients.length]} flex items-center justify-center text-white text-base font-black shadow-lg flex-shrink-0`}>
-                        {customer.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                      <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${gradients[i % gradients.length]} flex items-center justify-center text-white text-base font-black shadow-lg flex-shrink-0 overflow-hidden`}>
+                        {customer.avatar ? (
+                          <img src={customer.avatar} alt={customer.name} className="w-full h-full object-cover" />
+                        ) : (
+                          customer.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                        )}
                       </div>
 
                       {/* Info */}

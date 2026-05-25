@@ -21,6 +21,9 @@ const app = express();
 // =====================================================
 
 // Security headers
+const compression = require('compression');
+app.use(compression());
+
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));

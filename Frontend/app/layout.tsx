@@ -12,6 +12,7 @@ import { link } from 'fs'
 import PwaManager from '@/components/pwa/PwaManager';
 import OfflineIndicator  from '@/components/OfflineIndicator';
 import { GlobalPreloader } from '@/components/GlobalPreloader';
+import { SWRProvider } from '@/contexts/SWRProvider';
 
 const _geist = Geist({ subsets: ['latin'] })
 const _geistMono = Geist_Mono({ subsets: ['latin'] })
@@ -86,15 +87,17 @@ export default function RootLayout({
       <body className="font-sans antialiased bg-background text-foreground transition-colors duration-300">
         <OfflineIndicator />
         <ThemeProvider>
-          <AuthProvider>
-            <NotificationProvider>
-              <LanguageProvider>
-                <GlobalPreloader />
-                {children}
-                <Analytics />
-              </LanguageProvider>
-            </NotificationProvider>
-          </AuthProvider>
+          <SWRProvider>
+            <AuthProvider>
+              <NotificationProvider>
+                <LanguageProvider>
+                  <GlobalPreloader />
+                  {children}
+                  <Analytics />
+                </LanguageProvider>
+              </NotificationProvider>
+            </AuthProvider>
+          </SWRProvider>
         </ThemeProvider>
         <PwaManager />
       </body>

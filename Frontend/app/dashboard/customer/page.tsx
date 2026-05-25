@@ -13,6 +13,7 @@ import { useState, useEffect } from 'react';
 import { customerAPI } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
+import useSWR from 'swr';
 
 interface DashboardData {
   creditBalance: number;
@@ -54,29 +55,19 @@ export default function CustomerDashboard() {
     boxShadow: T.cardShadow,
   };
 
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [recentHistory, setRecentHistory] = useState<any[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: dashboardData, isLoading: dashboardLoading } = useSWR(
+    'customerDashboard',
+    () => customerAPI.getDashboard().then((res: any) => res.data.dashboard),
+    { revalidateOnFocus: true }
+  );
 
-  useEffect(() => { fetchDashboard(); fetchHistory(); }, []);
+  const { data: recentHistory, isLoading: historyLoading } = useSWR(
+    'customerRecentHistory',
+    () => customerAPI.getOrders({ limit: 5 }).then((res: any) => res.data.orders || []),
+    { revalidateOnFocus: true }
+  );
 
-  const fetchHistory = async () => {
-    setHistoryLoading(true);
-    try {
-      const res = await customerAPI.getOrders({ limit: 5 });
-      setRecentHistory(res.data.orders || []);
-    } catch {} finally { setHistoryLoading(false); }
-  };
-
-  const fetchDashboard = async () => {
-    try {
-      const response = await customerAPI.getDashboard();
-      setDashboardData(response.data.dashboard);
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.response?.data?.message || 'Failed to load dashboard', variant: 'destructive' });
-    } finally { setIsLoading(false); }
-  };
+  const isLoading = dashboardLoading;
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'No purchases yet';
@@ -267,14 +258,14 @@ export default function CustomerDashboard() {
                   <div style={{ display: 'flex', justifyContent: 'center', padding: '28px 0' }}>
                     <div style={{ width: '28px', height: '28px', border: '3px solid #EAF2FB', borderTopColor: '#1A5276', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                   </div>
-                ) : recentHistory.length === 0 ? (
+                ) : !recentHistory || recentHistory.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '28px 0', border: `2px dashed ${T.innerBorder}`, borderRadius: '10px' }}>
                     <p style={{ fontSize: '13px', color: T.textSub, fontWeight: 600 }}>No recent activity</p>
                     <p style={{ fontSize: '12px', color: T.textMuted, marginTop: '4px' }}>Your credit history will appear here.</p>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {recentHistory.map((item) => {
+                    {recentHistory.map((item: any) => {
                       const isRequest = item.notes?.startsWith('[REQUEST]');
                       return (
                         <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: T.innerBg, borderRadius: '10px', border: `1px solid ${T.innerBorder}` }}>

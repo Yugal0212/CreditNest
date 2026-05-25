@@ -16,6 +16,7 @@ import { shopOwnerAPI } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTranslation } from 'react-i18next';
+import useSWR from 'swr';
 
 /* ── Interfaces ─────────────────────────────────────────────── */
 interface DashboardStats {
@@ -54,47 +55,35 @@ export default function ShopOwnerDashboard() {
     boxShadow: T.cardShadow,
   };
 
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [requests, setRequests] = useState<any[]>([]);
-  const [requestsLoading, setRequestsLoading] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<{ [requestId: string]: string[] }>({});
   const [expandedRequest, setExpandedRequest] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchDashboardStats();
-    fetchRequests();
-  }, [language]);
+  const { data: stats, isLoading: statsLoading, mutate: mutateStats } = useSWR(
+    ['shopOwnerDashboardStats', language],
+    () => shopOwnerAPI.getDashboardStats().then((res: any) => res.data.stats),
+    { 
+      revalidateOnFocus: true,
+      dedupingInterval: 60000 
+    }
+  );
 
-  const fetchRequests = async () => {
-    setRequestsLoading(true);
-    try {
-      console.log('Fetching pending requests...');
+  const { data: requests, isLoading: requestsLoading, mutate: mutateRequests } = useSWR(
+    ['shopOwnerPendingRequests', language],
+    async () => {
       const res = await shopOwnerAPI.getOrderRequests({ limit: 5 }, { timeout: 15000 });
-      console.log('Pending requests response:', res.data);
-      console.log('Orders:', res.data.orders);
-      console.log('Orders count:', res.data.orders?.length || 0);
-      setRequests(res.data.orders || []);
+      const orders = res.data.orders || [];
       const initialSelections: { [key: string]: string[] } = {};
-      (res.data.orders || []).forEach((req: any) => {
+      orders.forEach((req: any) => {
         initialSelections[req.id] = req.items.map((item: any, idx: number) => `${req.id}-${idx}`);
       });
       setSelectedItems(initialSelections);
-    } catch (error: any) {
-      console.error('Error fetching requests:', error);
-      const errorCode = error?.code;
-      const serverMessage = error?.response?.data?.message;
-      if (error?.response) console.error('Error response:', error.response);
-      let description = serverMessage || t('seller_dashboard.err_load_requests', 'Failed to load pending requests');
-      if (!serverMessage && (errorCode === 'ERR_NETWORK' || errorCode === 'ECONNABORTED')) {
-        description = t('seller_dashboard.err_network', 'Cannot reach server. Please check backend connection and try again.');
-      }
-      toast({ title: t('common.error', 'Error'), description, variant: 'destructive' });
-    } finally {
-      setRequestsLoading(false);
-    }
-  };
+      return orders;
+    },
+    { revalidateOnFocus: true }
+  );
+
+  const isLoading = statsLoading || requestsLoading;
 
   const toggleItemSelection = (requestId: string, itemId: string) => {
     setSelectedItems(prev => {
@@ -119,7 +108,7 @@ export default function ShopOwnerDashboard() {
       toast({ title: t('seller_dashboard.title_no_items', 'No items selected'), description: t('seller_dashboard.desc_no_items', 'Please select at least one product to approve'), variant: 'destructive' });
       return;
     }
-    const request = requests.find(r => r.id === id);
+    const request = requests?.find((r: any) => r.id === id);
     if (!request) return;
     const selectedIndices = selected.map(itemId => { const parts = itemId.split('-'); return parseInt(parts[parts.length - 1]); });
     const selectedProducts = request.items.filter((_: any, idx: number) => selectedIndices.includes(idx));
@@ -131,7 +120,7 @@ export default function ShopOwnerDashboard() {
       console.log('Approve response:', response.data);
       const approvalType = selectedProducts.length === request.items.length ? t('seller_dashboard.all_products', 'All products') : t('seller_dashboard.product_count', '{{count}} product(s)', { count: selectedProducts.length });
       toast({ title: `✅ ${t('seller_dashboard.approved', 'Approved')}`, description: t('seller_dashboard.approved_desc', '{{type}} approved. Credit added to customer account.', { type: approvalType }) });
-      await Promise.all([fetchRequests(), fetchDashboardStats()]);
+      await Promise.all([mutateRequests(), mutateStats()]);
     } catch (err: any) {
       console.error('Error approving order:', err);
       let errorMsg = t('seller_dashboard.err_approve', 'Failed to approve request');
@@ -149,20 +138,11 @@ export default function ShopOwnerDashboard() {
       const response = await shopOwnerAPI.rejectOrder(id);
       console.log('Reject response:', response.data);
       toast({ title: `❌ ${t('seller_dashboard.rejected', 'Rejected')}`, description: t('seller_dashboard.rejected_desc', 'Order request has been rejected') });
-      await fetchRequests();
+      await mutateRequests();
     } catch (err: any) {
       console.error('Error rejecting order:', err);
       toast({ title: t('common.error', 'Error'), description: err.response?.data?.message || t('seller_dashboard.err_reject', 'Failed to reject request'), variant: 'destructive' });
     } finally { setProcessingRequestId(null); }
-  };
-
-  const fetchDashboardStats = async () => {
-    try {
-      const response = await shopOwnerAPI.getDashboardStats();
-      setStats(response.data.stats);
-    } catch (error: any) {
-      toast({ title: t('common.error', 'Error'), description: error.response?.data?.message || t('seller_dashboard.err_load_dashboard', 'Failed to load dashboard'), variant: 'destructive' });
-    } finally { setIsLoading(false); }
   };
 
   const statsConfig = stats ? [
@@ -316,14 +296,14 @@ export default function ShopOwnerDashboard() {
                   <Bell size={14} color={isDark ? '#fbbf24' : '#D4A017'} strokeWidth={2} />
                 </div>
                 <h2 style={{ fontSize: '15px', fontWeight: 700, color: isDark ? '#818cf8' : '#1A5276', margin: 0 }}>{t('seller_dashboard.pending_requests', 'Pending Requests')}</h2>
-                {requests.length > 0 && (
+                {requests && requests.length > 0 && (
                   <span style={{ fontSize: '11px', fontWeight: 700, background: isDark ? 'rgba(212, 160, 23, 0.15)' : '#FEF9ED', color: isDark ? '#fbbf24' : '#9A7D0A', border: `1px solid ${isDark ? 'rgba(212, 160, 23, 0.3)' : '#E8D4A0'}`, padding: '2px 8px', borderRadius: '999px' }}>
                     {t('seller_dashboard.pending_count', '{{count}} pending', { count: requests.length })}
                   </span>
                 )}
               </div>
               <button
-                onClick={fetchRequests}
+                onClick={() => mutateRequests()}
                 disabled={requestsLoading}
                 style={{ width: '32px', height: '32px', borderRadius: '8px', border: `1px solid ${T.innerBorder}`, background: T.innerBg, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: requestsLoading ? 0.5 : 1 }}
                 title={t('seller_dashboard.refresh', 'Refresh')}
@@ -338,7 +318,7 @@ export default function ShopOwnerDashboard() {
                 <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
                   <div style={{ width: '28px', height: '28px', border: '3px solid #EAF2FB', borderTopColor: '#1A5276', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                 </div>
-              ) : requests.length === 0 ? (
+              ) : !requests || requests.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '60px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <div style={{ width: '80px', height: '80px', borderRadius: '50%', border: `2px dashed ${T.cardBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
                     <CheckCircle2 size={36} color="#CBD5E1" strokeWidth={1.5} />
@@ -348,7 +328,7 @@ export default function ShopOwnerDashboard() {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {requests.map((req) => {
+                  {requests.map((req: any) => {
                     const allItemIds = req.items.map((_: any, idx: number) => `${req.id}-${idx}`);
                     const currentSelections = selectedItems[req.id] || [];
                     const allSelected = currentSelections.length === allItemIds.length && allItemIds.length > 0;

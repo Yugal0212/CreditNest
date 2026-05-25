@@ -132,6 +132,8 @@ model Customer {
   @@map("customers")
   @@index([shopId])
   @@index([status])
+  @@index([shopId, status])
+  @@index([shopId, lastPurchase])
 }
 
 enum CustomerStatus {
@@ -169,6 +171,7 @@ model Product {
   @@map("products")
   @@index([shopId])
   @@index([isActive])
+  @@index([shopId, isActive])
 }
 
 // =====================================================
@@ -223,6 +226,10 @@ model Transaction {
   @@index([transactionDate])
   @@index([paymentStatus])
   @@index([transactionType])
+  @@index([shopId, transactionDate])
+  @@index([shopId, customerId])
+  @@index([shopId, paymentStatus])
+  @@index([shopId, transactionType, transactionDate])
 }
 
 enum TransactionType {

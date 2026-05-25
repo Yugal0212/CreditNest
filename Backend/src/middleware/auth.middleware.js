@@ -11,6 +11,7 @@ const isDatabaseConnectionError = (error) => {
   // or PrismaClientInitializationError during connection issues.
   if (name === 'PrismaClientInitializationError') return true;
   if (code === 'P2010' && /Server selection timeout|No available servers|ReplicaSetNoPrimary/i.test(message)) return true;
+  if (code === 'P2024') return true; // Connection pool timeout
   if (/No such host is known|DNS resolution|ETIMEDOUT|ECONNREFUSED|ENOTFOUND/i.test(message)) return true;
   return false;
 };

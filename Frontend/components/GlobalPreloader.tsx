@@ -10,6 +10,16 @@ export function GlobalPreloader() {
   const isDark = theme === 'dark';
 
   useEffect(() => {
+    // Only show the preloader if running as a standalone PWA
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                         (window.navigator as any).standalone || 
+                         document.referrer.includes('android-app://');
+    
+    if (!isStandalone) {
+      setIsLoading(false);
+      return;
+    }
+
     // Artificial slight delay to ensure smooth CSS loading and hydration
     // In production this might be tied to actual app readiness or router events
     const timer = setTimeout(() => {

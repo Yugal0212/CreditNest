@@ -30,8 +30,8 @@ const initializeFast2SMS = () => {
   
   return {
     apiKey,
-    // Use promotional route for paid SMS (works without DLT)
-    route: 'p', // Promotional route - works with paid credits without DLT
+    // Use quick route for paid SMS (works without DLT for OTPs)
+    route: 'q', // Quick route - works with paid credits without DLT
   };
 };
 
@@ -59,11 +59,11 @@ const sendSMS = async (phone, message) => {
     // Fast2SMS API endpoint for PAID SMS
     const url = 'https://www.fast2sms.com/dev/bulkV2';
     
-    // For PAID SMS: Use promotional route which works without DLT
+    // For PAID SMS: Use quick route which works without DLT
     // Cost: ~₹0.15-0.25 per SMS
     const params = {
       authorization: fast2smsConfig.apiKey,
-      route: fast2smsConfig.route, // 'p' for promotional (paid)
+      route: fast2smsConfig.route, // 'q' for quick (paid)
       message: message,
       numbers: formattedPhone, // 10-digit number without country code
       flash: 0, // Normal SMS (not flash)

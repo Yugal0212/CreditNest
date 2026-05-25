@@ -201,17 +201,13 @@ export default function AddCreditPage() {
           </div>
         )}
 
-        {/* Split layout: products left, cart right */}
-        <div className="flex gap-3" style={{ height: step === 'pick' ? 'calc(100vh - 250px)' : 'calc(100vh - 160px)' }}>
+        {/* Responsive layout: Stack on mobile, side-by-side on lg screens */}
+        <div className="flex flex-col lg:flex-row gap-3" style={{ minHeight: 'calc(100vh - 160px)' }}>
           {/* ── LEFT: Product selection ── */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 order-2 lg:order-1">
             {step === 'pick' ? (
               /* Scrollable product grid - hidden scrollbar */
-              <div className="h-full overflow-y-auto scrollbar-hide">
-                <style jsx>{`
-                  .scrollbar-hide::-webkit-scrollbar { display: none; }
-                  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-                `}</style>
+              <div className="h-full">
                 {filteredProducts.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-48 text-center">
                     <Package className="w-12 h-12 text-muted-foreground/20 mb-2" />
@@ -223,16 +219,13 @@ export default function AddCreditPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 pb-4">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 pb-24 lg:pb-4">
                     {filteredProducts.map((p, idx) => {
                       const inCart = cart.find(c => c.productId === p.id);
                       const gradient = categoryColors[p.category || 'General'];
                       return (
                         <div
                           key={p.id}
-                         
-                         
-                         
                           onClick={() => toggleProduct(p)}
                           className={`relative p-2 rounded-lg border cursor-pointer transition-all select-none ${inCart
                             ? 'border-indigo-500/20 dark:border-indigo-400/20 bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors shadow-md ring-1 ring-indigo-500/20 dark:ring-indigo-400/20'
@@ -253,21 +246,21 @@ export default function AddCreditPage() {
                           <p className="text-[9px] text-muted-foreground mt-0.5">{p.unit}</p>
                           <p className="font-black text-primary dark:text-indigo-400 text-xs mt-1">₹{p.pricePerUnit}</p>
 
-                          {/* Qty controls */}
+                          {/* Qty controls - bigger touch targets for mobile */}
                           {inCart && (
-                            <div className="flex items-center gap-0.5 mt-1.5" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center gap-1 mt-1.5" onClick={e => e.stopPropagation()}>
                               <button
                                 onClick={() => updateQty(p.id, -1)}
-                                className="w-5 h-5 rounded-md bg-background border border-border flex items-center justify-center hover:bg-muted transition-colors"
+                                className="w-6 h-6 rounded-md bg-background border border-border flex items-center justify-center hover:bg-muted transition-colors"
                               >
-                                <Minus className="w-2.5 h-2.5" />
+                                <Minus className="w-3 h-3" />
                               </button>
                               <span className="flex-1 text-center font-black text-xs text-foreground">{inCart.quantity}</span>
                               <button
                                 onClick={() => updateQty(p.id, 1)}
-                                className="w-5 h-5 rounded-md bg-primary text-white flex items-center justify-center hover:bg-primary transition-colors"
+                                className="w-6 h-6 rounded-md bg-primary text-white flex items-center justify-center hover:bg-primary transition-colors"
                               >
-                                <Plus className="w-2.5 h-2.5" />
+                                <Plus className="w-3 h-3" />
                               </button>
                             </div>
                           )}
@@ -279,12 +272,8 @@ export default function AddCreditPage() {
               </div>
             ) : (
               /* Confirm step — show selected items summary on left - hidden scrollbar */
-              <div className="h-full overflow-y-auto scrollbar-hide">
-                <style jsx>{`
-                  .scrollbar-hide::-webkit-scrollbar { display: none; }
-                  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-                `}</style>
-                <div className="space-y-2 pb-4">
+              <div className="h-full pb-24 lg:pb-4">
+                <div className="space-y-2">
                   <h2 className="text-lg font-black text-foreground mb-4 flex items-center gap-2">
                     <CheckCircle2 className="w-5 h-5 text-primary dark:text-indigo-400" />
                     {t('add_credit_page.review_order')}
@@ -292,9 +281,6 @@ export default function AddCreditPage() {
                   {cart.map((item, i) => (
                     <div
                       key={item.productId}
-                     
-                     
-                     
                       className="flex items-center gap-3 p-3.5 rounded-xl bg-card text-card-foreground border border-border shadow-sm border border-border/50 hover:border-indigo-500/20 dark:border-indigo-400/20 transition-colors"
                     >
                       <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${categoryColors[products.find(p => p.id === item.productId)?.category || 'General']} flex items-center justify-center flex-shrink-0 shadow-md`}>
@@ -323,45 +309,49 @@ export default function AddCreditPage() {
             )}
           </div>
 
-          {/* ── RIGHT: Fixed Cart ── */}
-          <div className="w-[260px] xl:w-[300px] flex-shrink-0">
-            <div className="glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all h-full flex flex-col sticky top-0 p-3 rounded-xl border border-border/50 shadow-lg bg-background/95 backdrop-blur-sm">
-              {/* Cart header */}
-              <div className="flex items-center justify-between mb-2.5 flex-shrink-0">
-                <h3 className="font-black text-foreground text-sm flex items-center gap-1.5">
-                  <ShoppingBag className="w-3.5 h-3.5 text-primary dark:text-indigo-400" />
-                  {t('add_credit_page.cart')}
+          {/* ── RIGHT: Fixed Cart (Sticky on desktop, bottom sheet style on mobile) ── */}
+          <div className="w-full lg:w-[300px] xl:w-[320px] flex-shrink-0 order-1 lg:order-2 fixed lg:sticky bottom-0 lg:top-0 left-0 right-0 lg:h-[calc(100vh-160px)] z-20 pb-safe-bottom bg-background/95 lg:bg-transparent backdrop-blur-md lg:backdrop-blur-none border-t lg:border-none border-border/50 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] lg:shadow-none p-3 lg:p-0">
+            <div className="glass-card bg-card text-card-foreground border border-border lg:shadow-sm hover:shadow-md transition-all lg:h-full flex flex-col lg:p-3 lg:rounded-xl lg:border-border/50 lg:bg-background/95">
+              
+              {/* Only show full cart details on desktop or in confirm step on mobile */}
+              <div className={`flex-col ${step === 'confirm' ? 'flex' : 'hidden lg:flex'}`}>
+                {/* Cart header */}
+                <div className="flex items-center justify-between mb-2.5 flex-shrink-0">
+                  <h3 className="font-black text-foreground text-sm flex items-center gap-1.5">
+                    <ShoppingBag className="w-3.5 h-3.5 text-primary dark:text-indigo-400" />
+                    {t('add_credit_page.cart')}
+                    {cart.length > 0 && (
+                      <span className="text-[10px] bg-primary text-white px-1.5 py-0.5 rounded-full font-black">
+                        {cart.length}
+                      </span>
+                    )}
+                  </h3>
                   {cart.length > 0 && (
-                    <span className="text-[10px] bg-primary text-white px-1.5 py-0.5 rounded-full font-black">
-                      {cart.length}
-                    </span>
+                    <button
+                      onClick={() => setCart([])}
+                      className="text-[10px] text-red-500 font-bold hover:text-red-600 flex items-center gap-0.5"
+                    >
+                      <Trash2 className="w-2.5 h-2.5" /> {t('common.clear', 'Clear')}
+                    </button>
                   )}
-                </h3>
-                {cart.length > 0 && (
-                  <button
-                    onClick={() => setCart([])}
-                    className="text-[10px] text-red-500 font-bold hover:text-red-600 flex items-center gap-0.5"
-                  >
-                    <Trash2 className="w-2.5 h-2.5" /> {t('common.clear', 'Clear')}
-                  </button>
+                </div>
+
+                {/* Customer badge */}
+                {customer && (
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors border border-indigo-500/20 dark:border-indigo-400/20 mb-2.5 flex-shrink-0">
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-indigo-500 flex items-center justify-center text-white text-[10px] font-black flex-shrink-0">
+                      {customer.name[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-xs text-foreground truncate">{customer.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{t('customer_detail_page.balance_short', 'Bal')}: ₹{customer.creditBalance.toLocaleString()}</p>
+                    </div>
+                  </div>
                 )}
               </div>
 
-              {/* Customer badge */}
-              {customer && (
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors border border-indigo-500/20 dark:border-indigo-400/20 mb-2.5 flex-shrink-0">
-                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-indigo-500 flex items-center justify-center text-white text-[10px] font-black flex-shrink-0">
-                    {customer.name[0]}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-xs text-foreground truncate">{customer.name}</p>
-                    <p className="text-[10px] text-muted-foreground">{t('customer_detail_page.balance_short', 'Bal')}: ₹{customer.creditBalance.toLocaleString()}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Cart items - hidden scrollbar */}
-              <div className="flex-1 overflow-y-auto min-h-0 scrollbar-hide">
+              {/* Cart items - hidden scrollbar, hidden on mobile pick step */}
+              <div className={`flex-1 overflow-y-auto min-h-0 scrollbar-hide max-h-[30vh] lg:max-h-none ${step === 'confirm' ? 'block' : 'hidden lg:block'}`}>
                 <style jsx>{`
                   .scrollbar-hide::-webkit-scrollbar { display: none; }
                   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
@@ -378,34 +368,31 @@ export default function AddCreditPage() {
                       {cart.map(item => (
                         <div
                           key={item.productId}
-                         
-                         
-                         
                           className="flex items-center gap-1.5 p-1.5 rounded-lg bg-card text-card-foreground border border-border shadow-sm border border-border/40"
                         >
                           <div className="flex-1 min-w-0">
                             <p className="font-bold text-foreground text-[10px] truncate">{item.name}</p>
                             <p className="text-[9px] text-muted-foreground">₹{item.unitPrice} / {item.unit}</p>
                           </div>
-                          <div className="flex items-center gap-0.5 flex-shrink-0">
+                          <div className="flex items-center gap-1 flex-shrink-0">
                             <button
                               onClick={() => updateQty(item.productId, -1)}
-                              className="w-4 h-4 rounded bg-muted flex items-center justify-center hover:bg-muted-foreground/20 transition-colors"
+                              className="w-5 h-5 rounded bg-muted flex items-center justify-center hover:bg-muted-foreground/20 transition-colors"
                             >
-                              <Minus className="w-2 h-2" />
+                              <Minus className="w-2.5 h-2.5" />
                             </button>
-                            <span className="w-4 text-center font-black text-[10px]">{item.quantity}</span>
+                            <span className="w-5 text-center font-black text-[11px]">{item.quantity}</span>
                             <button
                               onClick={() => updateQty(item.productId, 1)}
-                              className="w-4 h-4 rounded bg-primary text-white flex items-center justify-center hover:bg-primary transition-colors"
+                              className="w-5 h-5 rounded bg-primary text-white flex items-center justify-center hover:bg-primary transition-colors"
                             >
-                              <Plus className="w-2 h-2" />
+                              <Plus className="w-2.5 h-2.5" />
                             </button>
                             <button
                               onClick={() => removeFromCart(item.productId)}
-                              className="w-4 h-4 ml-0.5 rounded bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500/20 transition-colors"
+                              className="w-5 h-5 ml-1 rounded bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500/20 transition-colors"
                             >
-                              <X className="w-2 h-2" />
+                              <X className="w-2.5 h-2.5" />
                             </button>
                           </div>
                         </div>
@@ -415,17 +402,10 @@ export default function AddCreditPage() {
                 )}
               </div>
 
-              {/* Cart footer */}
-              <div className="mt-2.5 pt-2.5 border-t border-border/40 flex-shrink-0 space-y-2">
+              {/* Cart footer (always visible on mobile to proceed) */}
+              <div className={`mt-2.5 lg:pt-2.5 ${step === 'confirm' ? 'border-t lg:border-border/40' : 'border-t-0'} flex-shrink-0 space-y-2`}>
                 {cart.length > 0 && (
-                  <div className="space-y-1">
-                    {/* Line items subtotal */}
-                    {cart.map(item => (
-                      <div key={item.productId} className="flex justify-between text-[10px]">
-                        <span className="text-muted-foreground truncate pr-1.5">{item.name} ×{item.quantity}</span>
-                        <span className="font-bold text-foreground flex-shrink-0">₹{(item.unitPrice * item.quantity).toLocaleString()}</span>
-                      </div>
-                    ))}
+                  <div className={`space-y-1 ${step === 'confirm' ? 'block' : 'hidden lg:block'}`}>
                     <div className="flex justify-between items-center pt-1 border-t border-border/30">
                       <span className="text-xs font-bold text-muted-foreground">{t('customer_detail_page.total_credit')}</span>
                       <span className="text-base font-black text-red-500">₹{cartTotal.toLocaleString()}</span>
@@ -437,27 +417,27 @@ export default function AddCreditPage() {
                   <button
                     onClick={() => { if (cart.length > 0) setStep('confirm'); }}
                     disabled={cart.length === 0}
-                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-primary to-indigo-500 text-white font-black text-sm shadow-lg shadow-indigo-500/20 dark:shadow-indigo-400/20 transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 hover:from-indigo-600 hover:to-teal-700"
+                    className="w-full py-3 lg:py-2.5 rounded-xl bg-gradient-to-r from-primary to-indigo-500 text-white font-black text-sm shadow-lg shadow-indigo-500/20 dark:shadow-indigo-400/20 transition-all flex items-center justify-between px-4 disabled:opacity-40 hover:from-indigo-600 hover:to-teal-700"
                   >
-                    <ShoppingBag className="w-3.5 h-3.5" />
-                    {t('add_credit_page.review_btn')} ({cart.length})
+                    <span className="flex items-center gap-1.5"><ShoppingBag className="w-4 h-4" /> {t('add_credit_page.review_btn')} ({cart.length})</span>
+                    {cart.length > 0 && <span className="text-base">₹{cartTotal.toLocaleString()}</span>}
                   </button>
                 ) : (
                   <div className="flex flex-col gap-1.5">
                     <button
                       onClick={() => setStep('pick')}
-                      className="w-full py-2 rounded-xl border border-border text-foreground font-bold hover:bg-muted transition-colors text-xs"
+                      className="w-full py-2.5 rounded-xl border border-border text-foreground font-bold hover:bg-muted transition-colors text-sm"
                     >
                       {t('add_credit_page.back_to_products')}
                     </button>
                     <button
                       onClick={handleSubmit}
                       disabled={submitting}
-                      className="w-full py-2.5 rounded-xl bg-gradient-to-r from-primary to-indigo-500 text-white font-black text-sm shadow-lg shadow-indigo-500/20 dark:shadow-indigo-400/20 flex items-center justify-center gap-1.5 disabled:opacity-50 hover:from-indigo-600 hover:to-teal-700 transition-all"
+                      className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-indigo-500 text-white font-black text-base shadow-lg shadow-indigo-500/20 dark:shadow-indigo-400/20 flex items-center justify-center gap-1.5 disabled:opacity-50 hover:from-indigo-600 hover:to-teal-700 transition-all"
                     >
                       {submitting
-                        ? <Loader2 className="w-4 h-4 animate-spin" />
-                        : <><IndianRupee className="w-3.5 h-3.5" /> {t('add_credit_page.confirm_credit')}</>
+                        ? <Loader2 className="w-5 h-5 animate-spin" />
+                        : <><IndianRupee className="w-4 h-4" /> {t('add_credit_page.confirm_credit')}</>
                       }
                     </button>
                   </div>

@@ -594,12 +594,7 @@ html:not(.dark) .admin-theme [class*='rounded'].bg-card {
   box-shadow: 0 2px 12px rgba(26, 82, 118, 0.08);
 }
 
-/* ── Gradients (icon circles & stat card icons, light only) ─ */
-html:not(.dark) .admin-theme .bg-gradient-to-br,
-html:not(.dark) .admin-theme [class*='bg-gradient-to']:not(.text-white) {
-  background-image: none !important;
-  background-color: #EAF2FB !important;
-}
+/* ── Gradients ─ */
 
 /* Stat/quick-action icon circles: swap teal/indigo → navy */
 .admin-theme .from-teal-500,

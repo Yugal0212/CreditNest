@@ -45,16 +45,12 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
 
         {/* Page content */}
         <main
+          className="flex-1 pt-[60px] pb-[48px] px-3 sm:px-4 md:px-6 overflow-x-hidden w-full max-w-[100vw]"
           style={{
-            flex:           1,
-            paddingTop:     '60px',
-            paddingLeft:    '26px',
-            paddingRight:   '26px',
-            paddingBottom:  '48px',
-            background:     contentBg,
+            background: contentBg,
           }}
         >
-          <div style={{ maxWidth: '1280px', margin: '0 auto', paddingTop: '24px' }}>
+          <div className="max-w-[1280px] mx-auto pt-6">
             {children}
           </div>
           <div className="md:hidden" style={{ height: 'calc(5.5rem + env(safe-area-inset-bottom))' }} />
