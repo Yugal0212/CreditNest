@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  LayoutGrid, Package, Users, History, ShoppingBag, User, BarChart2, FileText, MoreHorizontal
+  LayoutGrid, Package, Users, History, ShoppingBag, User, BarChart2, FileText, MoreHorizontal, FolderOpen
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -31,6 +31,7 @@ const getNavConfig = () => ({
       { id: 'orders', href: '/dashboard/shop_owner/orders', icon: <ShoppingBag size={22} />, label: 'Orders' },
     ],
     more: [
+      { id: 'categories', href: '/dashboard/shop_owner/categories', icon: <FolderOpen size={20} />, label: 'Categories', desc: 'Manage your product categories', color: '#3B82F6' },
       { id: 'profile', href: '/dashboard/profile', icon: <User size={20} />, label: 'Profile', desc: 'Shop owner settings', color: '#10B981' },
     ]
   },

@@ -45,7 +45,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
 
         {/* Page content */}
         <main
-          className="flex-1 pt-[60px] pb-[48px] px-3 sm:px-4 md:px-6 overflow-x-hidden w-full max-w-[100vw]"
+          className="flex-1 pt-[60px] pb-[80px] md:pb-[48px] px-3 sm:px-4 md:px-6 overflow-x-hidden w-full max-w-[100vw]"
           style={{
             background: contentBg,
           }}
@@ -53,7 +53,8 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
           <div className="max-w-[1280px] mx-auto pt-6">
             {children}
           </div>
-          <div className="md:hidden" style={{ height: 'calc(5.5rem + env(safe-area-inset-bottom))' }} />
+          {/* Spacer for bottom nav bar on mobile */}
+          <div className="md:hidden" style={{ height: 'calc(7.5rem + env(safe-area-inset-bottom))' }} />
         </main>
       </div>
 

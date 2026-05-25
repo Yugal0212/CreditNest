@@ -741,31 +741,31 @@ export default function ShopOwnerProducts() {
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="glass-card bg-zinc-950 text-white border border-white/10 shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto flex flex-col justify-between p-6" 
+                className="glass-card shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto flex flex-col justify-between p-6" 
                 onClick={e => e.stopPropagation()}
               >
                 {/* Modal Header */}
-                <div className="flex justify-between items-center mb-6 border-b border-white/5 pb-4">
+                <div className="flex justify-between items-center mb-6 border-b border-border pb-4">
                   <div>
-                    <h2 className="text-2xl font-black flex items-center gap-2 text-indigo-400">
+                    <h2 className="text-2xl font-black flex items-center gap-2 text-primary">
                       <Sparkles className="w-6 h-6 animate-pulse" /> Bill Scan Catalog Entry
                     </h2>
-                    <p className="text-xs text-white/60">Upload billing receipts or invoices to extract and dynamically register products.</p>
+                    <p className="text-xs text-muted-foreground">Upload billing receipts or invoices to extract and dynamically register products.</p>
                   </div>
-                  <button onClick={() => setShowScanModal(false)} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 transition-all"><X className="w-4 h-4" /></button>
+                  <button onClick={() => setShowScanModal(false)} className="p-2 rounded-xl bg-muted/50 hover:bg-muted border border-border text-muted-foreground transition-all"><X className="w-4 h-4" /></button>
                 </div>
 
                 {/* Modal Content */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                   {/* Left Column: Upload & OCR */}
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-5 lg:col-span-1">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-white/80 flex items-center gap-2">
-                      <FileText className="w-4.5 h-4.5 text-indigo-400" />
+                  <div className="bg-background/50 border border-border rounded-2xl p-5 space-y-5 lg:col-span-1">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
+                      <FileText className="w-4.5 h-4.5 text-primary" />
                       Invoice Image
                     </h3>
 
                     {/* Drag-and-drop Image Panel */}
-                    <div className="relative border-2 border-dashed border-white/10 rounded-xl p-6 flex flex-col items-center justify-center bg-white/5 hover:bg-white/10 transition-colors cursor-pointer group">
+                    <div className="relative border-2 border-dashed border-border rounded-xl p-6 flex flex-col items-center justify-center bg-muted/30 hover:bg-muted transition-colors cursor-pointer group">
                       <input
                         type="file"
                         accept="image/*"
@@ -781,11 +781,11 @@ export default function ShopOwnerProducts() {
                         </div>
                       ) : (
                         <div className="text-center py-6 space-y-2">
-                          <div className="p-3 bg-indigo-500/10 rounded-full text-indigo-400 inline-flex">
+                          <div className="p-3 bg-indigo-500/10 rounded-full text-primary inline-flex">
                             <Upload className="w-5 h-5" />
                           </div>
-                          <p className="text-xs text-white font-bold">Click or drag bill image to upload</p>
-                          <p className="text-[10px] text-white/40">Accepts PNG, JPG, JPEG, WEBP up to 5MB</p>
+                          <p className="text-xs text-foreground font-bold">Click or drag bill image to upload</p>
+                          <p className="text-[10px] text-muted-foreground">Accepts PNG, JPG, JPEG, WEBP up to 5MB</p>
                         </div>
                       )}
                     </div>
@@ -814,14 +814,14 @@ export default function ShopOwnerProducts() {
                     {/* Progress Bar */}
                     {isScanning && (
                       <div className="space-y-1.5">
-                        <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+                        <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
                           <motion.div
                             initial={{ width: '0%' }}
                             animate={{ width: `${scanProgress}%` }}
                             className="bg-indigo-500 h-full"
                           />
                         </div>
-                        <p className="text-[10px] text-indigo-300 animate-pulse text-center">
+                        <p className="text-[10px] text-primary animate-pulse text-center">
                           Intelligently extracting text lines and parsing items...
                         </p>
                       </div>
@@ -830,10 +830,10 @@ export default function ShopOwnerProducts() {
                     {/* Raw Text Box */}
                     {rawOcrText && (
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold uppercase tracking-wider text-white/40 block">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
                           Parsed Raw Text Log
                         </label>
-                        <pre className="text-[9px] font-mono p-3 bg-black/50 border border-white/5 rounded-lg text-white/70 overflow-x-auto max-h-32 overflow-y-auto">
+                        <pre className="text-[9px] font-mono p-3 bg-muted border border-border rounded-lg text-foreground overflow-x-auto max-h-32 overflow-y-auto">
                           {rawOcrText}
                         </pre>
                       </div>
@@ -841,17 +841,17 @@ export default function ShopOwnerProducts() {
                   </div>
 
                   {/* Right Column: Parsed Items editable Grid */}
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-5 lg:col-span-2 flex flex-col justify-between min-h-[350px]">
+                  <div className="bg-background/50 border border-border rounded-2xl p-5 lg:col-span-2 flex flex-col justify-between min-h-[350px]">
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-white/80 flex items-center gap-2">
-                          <ShoppingBag className="w-4.5 h-4.5 text-indigo-400" />
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
+                          <ShoppingBag className="w-4.5 h-4.5 text-primary" />
                           Parsed Products Preview
                         </h3>
                         {extractedProducts.length > 0 && (
                           <button
                             onClick={handleAddScanManualProduct}
-                            className="flex items-center gap-1 px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-bold transition-all text-indigo-400"
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-muted/50 hover:bg-muted border border-border rounded-lg text-[10px] font-bold transition-all text-primary"
                           >
                             <Plus className="w-3 h-3" />
                             Add Item
@@ -860,20 +860,20 @@ export default function ShopOwnerProducts() {
                       </div>
 
                       {extractedProducts.length === 0 ? (
-                        <div className="py-16 text-center space-y-3 text-white/40 max-w-sm mx-auto">
-                          <div className="inline-flex p-3.5 bg-white/5 border border-white/10 rounded-full">
-                            <FileText className="w-6 h-6 text-white/20" />
+                        <div className="py-16 text-center space-y-3 text-muted-foreground max-w-sm mx-auto">
+                          <div className="inline-flex p-3.5 bg-muted border border-border rounded-full">
+                            <FileText className="w-6 h-6 text-muted-foreground/40" />
                           </div>
-                          <h4 className="text-sm font-bold text-white">No products parsed yet</h4>
-                          <p className="text-xs text-white/50">
+                          <h4 className="text-sm font-bold text-foreground">No products parsed yet</h4>
+                          <p className="text-xs text-muted-foreground">
                             Upload a billing receipt or invoice image on the left, then click OCR scan to automatically extract items.
                           </p>
                         </div>
                       ) : (
-                        <div className="overflow-x-auto border border-white/5 rounded-xl max-h-[45vh] overflow-y-auto">
+                        <div className="overflow-x-auto border border-border rounded-xl max-h-[45vh] overflow-y-auto">
                           <table className="w-full text-left border-collapse text-xs">
                             <thead>
-                              <tr className="bg-white/5 border-b border-white/10 text-white/55 text-[10px] uppercase tracking-wider font-bold">
+                              <tr className="bg-muted border-b border-border text-muted-foreground text-[10px] uppercase tracking-wider font-bold">
                                 <th className="p-2.5">Product Name</th>
                                 <th className="p-2.5 w-28">Category</th>
                                 <th className="p-2.5 w-16">Unit</th>
@@ -885,14 +885,14 @@ export default function ShopOwnerProducts() {
                             </thead>
                             <tbody>
                               {extractedProducts.map((prod, idx) => (
-                                <tr key={idx} className="border-b border-white/5 hover:bg-white/5 text-white/90">
+                                <tr key={idx} className="border-b border-border hover:bg-muted/50 text-foreground">
                                   {/* Name */}
                                   <td className="p-2">
                                     <input
                                       type="text"
                                       value={prod.productName}
                                       onChange={(e) => handleEditScanField(idx, 'productName', e.target.value)}
-                                      className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:bg-zinc-900 text-white"
+                                      className="w-full bg-background/50 border border-border rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:bg-background text-foreground"
                                     />
                                   </td>
                                   
@@ -901,7 +901,7 @@ export default function ShopOwnerProducts() {
                                     <select
                                       value={prod.category}
                                       onChange={(e) => handleEditScanField(idx, 'category', e.target.value)}
-                                      className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:bg-zinc-900 text-indigo-300 font-bold"
+                                      className="w-full bg-background/50 border border-border rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:bg-background text-primary font-bold"
                                     >
                                       {Object.keys(categoryColors).map(c => <option key={c} value={c}>{c}</option>)}
                                       {categoriesList.filter((cat: any) => !Object.keys(categoryColors).includes(cat.name)).map((cat: any) => (
@@ -916,7 +916,7 @@ export default function ShopOwnerProducts() {
                                       type="text"
                                       value={prod.unit}
                                       onChange={(e) => handleEditScanField(idx, 'unit', e.target.value)}
-                                      className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:bg-zinc-900 text-center text-white"
+                                      className="w-full bg-background/50 border border-border rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:bg-background text-center text-foreground"
                                     />
                                   </td>
 
@@ -926,7 +926,7 @@ export default function ShopOwnerProducts() {
                                       type="number"
                                       value={prod.pricePerUnit}
                                       onChange={(e) => handleEditScanField(idx, 'pricePerUnit', e.target.value)}
-                                      className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:bg-zinc-900 text-white"
+                                      className="w-full bg-background/50 border border-border rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:bg-background text-foreground"
                                     />
                                   </td>
 
@@ -936,7 +936,7 @@ export default function ShopOwnerProducts() {
                                       type="number"
                                       value={prod.mrp}
                                       onChange={(e) => handleEditScanField(idx, 'mrp', e.target.value)}
-                                      className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:bg-zinc-900 text-white"
+                                      className="w-full bg-background/50 border border-border rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:bg-background text-foreground"
                                     />
                                   </td>
 
@@ -946,7 +946,7 @@ export default function ShopOwnerProducts() {
                                       type="text"
                                       value={prod.gst}
                                       onChange={(e) => handleEditScanField(idx, 'gst', e.target.value)}
-                                      className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:bg-zinc-900 text-center text-white"
+                                      className="w-full bg-background/50 border border-border rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 focus:bg-background text-center text-foreground"
                                     />
                                   </td>
 
@@ -954,7 +954,7 @@ export default function ShopOwnerProducts() {
                                   <td className="p-2 text-center">
                                     <button
                                       onClick={() => handleDeleteScanProduct(idx)}
-                                      className="p-1 text-white/50 hover:text-red-400 hover:bg-white/5 rounded transition-all"
+                                      className="p-1 text-muted-foreground hover:text-red-500 hover:bg-muted rounded transition-all"
                                     >
                                       <Trash className="w-3.5 h-3.5" />
                                     </button>
@@ -969,9 +969,9 @@ export default function ShopOwnerProducts() {
 
                     {/* Modal Save Footer */}
                     {extractedProducts.length > 0 && (
-                      <div className="border-t border-white/10 pt-4 mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div className="flex items-start gap-1.5 text-white/50 text-[10px]">
-                          <Info className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0 mt-0.5" />
+                      <div className="border-t border-border pt-4 mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="flex items-start gap-1.5 text-muted-foreground text-[10px]">
+                          <Info className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
                           <span>
                             Parsed items will automatically be uploaded and matched to dynamic inventory.
                           </span>

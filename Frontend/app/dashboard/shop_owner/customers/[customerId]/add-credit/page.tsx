@@ -310,7 +310,7 @@ export default function AddCreditPage() {
           </div>
 
           {/* ── RIGHT: Fixed Cart (Sticky on desktop, bottom sheet style on mobile) ── */}
-          <div className="w-full lg:w-[300px] xl:w-[320px] flex-shrink-0 order-1 lg:order-2 fixed lg:sticky bottom-0 lg:top-0 left-0 right-0 lg:h-[calc(100vh-160px)] z-20 pb-safe-bottom bg-background/95 lg:bg-transparent backdrop-blur-md lg:backdrop-blur-none border-t lg:border-none border-border/50 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] lg:shadow-none p-3 lg:p-0">
+          <div className="w-full lg:w-[300px] xl:w-[320px] flex-shrink-0 order-1 lg:order-2 fixed lg:sticky bottom-[72px] lg:bottom-auto lg:top-0 left-0 right-0 lg:h-[calc(100vh-160px)] z-20 pb-safe-bottom bg-background/95 lg:bg-transparent backdrop-blur-md lg:backdrop-blur-none border-t lg:border-none border-border/50 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] lg:shadow-none p-3 lg:p-0">
             <div className="glass-card bg-card text-card-foreground border border-border lg:shadow-sm hover:shadow-md transition-all lg:h-full flex flex-col lg:p-3 lg:rounded-xl lg:border-border/50 lg:bg-background/95">
               
               {/* Only show full cart details on desktop or in confirm step on mobile */}

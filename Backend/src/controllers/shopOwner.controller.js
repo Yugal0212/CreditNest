@@ -899,7 +899,7 @@ exports.recordCreditSale = asyncHandler(async (req, res) => {
     message: 'Sale recorded successfully',
     transaction: {
       id: transaction.id,
-      receiptNumber: `RCPT-${new Date().getFullYear()}-${transaction.id.substring(0, 8)}`,
+      receiptNumber: `RCPT-${new Date().getFullYear()}-${transaction.id.toString().padStart(6, '0')}`,
       customerId: transaction.customerId,
       customerName: transaction.customer.customerName,
       items: transaction.items.map((item) => ({
