@@ -162,7 +162,7 @@ const sendOTP = async (identifierOrTargets, type, method = 'email') => {
       
       // If ALL methods failed and we are in production, throw error to notify frontend
       if (!isDevelopment && successes === 0) {
-        const err = new Error('Failed to send OTP. Please try again later.');
+        const err = new Error(`Failed to send OTP: ${failedMessages.join(' | ')}. Please check your email/SMS configuration.`);
         err.statusCode = 502; // Bad Gateway
         throw err;
       }
