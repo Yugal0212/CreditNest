@@ -154,10 +154,14 @@ exports.shopOwnerRegister = asyncHandler(async (req, res) => {
   }
 
   const identifier = normalizedEmail || normalizedPhone;
-  const otpTargets = {
-    email: normalizedEmail,
-    phone: normalizedPhone,
-  };
+  const otpTargets = {};
+  
+  // Prioritize email to save SMS costs
+  if (normalizedEmail) {
+    otpTargets.email = normalizedEmail;
+  } else if (normalizedPhone) {
+    otpTargets.phone = normalizedPhone;
+  }
 
   // Send OTP
   await sendOTP(otpTargets, 'REGISTRATION');
@@ -308,10 +312,13 @@ exports.shopOwnerLogin = asyncHandler(async (req, res) => {
     });
   }
 
-  const otpTargets = {
-    email: normalizeEmail(user.email),
-    phone: user.phone ? normalizePhoneNumber(user.phone) : null,
-  };
+  const isEmail = identifier.includes('@');
+  const otpTargets = {};
+  if (isEmail) {
+    otpTargets.email = normalizeEmail(user.email);
+  } else {
+    otpTargets.phone = user.phone ? normalizePhoneNumber(user.phone) : null;
+  }
 
   // Send OTP
   await sendOTP(otpTargets, 'LOGIN');
@@ -567,10 +574,13 @@ exports.customerLogin = asyncHandler(async (req, res) => {
     });
   }
 
-  const otpTargets = {
-    email: normalizeEmail(user.email),
-    phone: user.phone ? normalizePhoneNumber(user.phone) : null,
-  };
+  const isEmail = identifier.includes('@');
+  const otpTargets = {};
+  if (isEmail) {
+    otpTargets.email = normalizeEmail(user.email);
+  } else {
+    otpTargets.phone = user.phone ? normalizePhoneNumber(user.phone) : null;
+  }
 
   // Send OTP
   await sendOTP(otpTargets, 'LOGIN');
@@ -915,10 +925,13 @@ exports.requestPasswordReset = asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, message: 'Account not found or invalid role' });
   }
 
-  const otpTargets = {
-    email: normalizeEmail(user.email),
-    phone: user.phone ? normalizePhoneNumber(user.phone) : null,
-  };
+  const isEmail = identifier.includes('@');
+  const otpTargets = {};
+  if (isEmail) {
+    otpTargets.email = normalizeEmail(user.email);
+  } else {
+    otpTargets.phone = user.phone ? normalizePhoneNumber(user.phone) : null;
+  }
 
   await sendOTP(otpTargets, 'RESET_PASSWORD');
 

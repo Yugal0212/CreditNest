@@ -152,10 +152,10 @@ const sendOTP = async (identifierOrTargets, type, method = 'email') => {
 
       logger.warn('OTP delivery had partial or total failures.', logPayload);
       
-      // If ALL methods failed and we are in production, we could throw.
-      // But to prevent blocking users when Fast2SMS or Email is down, 
-      // we will gracefully continue since OTP is saved in DB.
-      // We will only throw if it's explicitly required, but here we just warn.
+      // If ALL methods failed and we are in production, throw error to notify frontend
+      if (!isDevelopment && successes === 0) {
+        throw new Error('Failed to send OTP. Please try again later.');
+      }
     }
 
     // Log OTP prominently in development mode or if all providers failed
