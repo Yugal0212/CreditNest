@@ -42,7 +42,9 @@ const sendOTP = async (identifierOrTargets, type, method = 'email') => {
     const uniqueIdentifiers = [...new Set(targets.map((target) => target.identifier))];
 
     if (uniqueIdentifiers.length === 0) {
-      throw new Error('No valid OTP destination found');
+      const err = new Error('No valid OTP destination found');
+      err.statusCode = 400;
+      throw err;
     }
     
       // Block requests while locked
@@ -55,7 +57,9 @@ const sendOTP = async (identifierOrTargets, type, method = 'email') => {
       });
 
       if (lockedRecord) {
-        throw new Error('Account locked due to multiple incorrect OTP attempts. Please try again after 10 minutes.');
+        const err = new Error('Account locked due to multiple incorrect OTP attempts. Please try again after 10 minutes.');
+        err.statusCode = 429;
+        throw err;
       }
 
       // Enforce per-identifier rate limit (max requests per hour)
@@ -72,7 +76,9 @@ const sendOTP = async (identifierOrTargets, type, method = 'email') => {
       );
 
       if (requestCounts.some((count) => count >= OTP.MAX_REQUESTS_PER_HOUR)) {
-        throw new Error('Too many OTP requests. Please try again after 1 hour.');
+        const err = new Error('Too many OTP requests. Please try again after 1 hour.');
+        err.statusCode = 429;
+        throw err;
       }
 
       // Check if recently sent OTP exists (shorter window in development)
@@ -87,7 +93,9 @@ const sendOTP = async (identifierOrTargets, type, method = 'email') => {
       });
 
       if (recentOTP) {
-        throw new Error('OTP already sent. Please wait 1 minute before requesting again.');
+        const err = new Error('OTP already sent. Please wait 1 minute before requesting again.');
+        err.statusCode = 429;
+        throw err;
       }
 
     // Generate random OTP (6 digits)
@@ -154,7 +162,9 @@ const sendOTP = async (identifierOrTargets, type, method = 'email') => {
       
       // If ALL methods failed and we are in production, throw error to notify frontend
       if (!isDevelopment && successes === 0) {
-        throw new Error('Failed to send OTP. Please try again later.');
+        const err = new Error('Failed to send OTP. Please try again later.');
+        err.statusCode = 502; // Bad Gateway
+        throw err;
       }
     }
 
@@ -199,7 +209,9 @@ const verifyOTP = async (identifierOrIdentifiers, otp) => {
   try {
     const identifiers = normalizeIdentifiers(identifierOrIdentifiers);
     if (identifiers.length === 0) {
-      throw new Error('Identifier is required for OTP verification');
+      const err = new Error('Identifier is required for OTP verification');
+      err.statusCode = 400;
+      throw err;
     }
 
     const lockedRecord = await prisma.oTPVerification.findFirst({
@@ -211,7 +223,9 @@ const verifyOTP = async (identifierOrIdentifiers, otp) => {
     });
 
     if (lockedRecord) {
-      throw new Error('Account locked due to multiple incorrect OTP attempts. Please try again after 10 minutes.');
+      const err = new Error('Account locked due to multiple incorrect OTP attempts. Please try again after 10 minutes.');
+      err.statusCode = 429;
+      throw err;
     }
 
     // Find OTP record
@@ -226,7 +240,9 @@ const verifyOTP = async (identifierOrIdentifiers, otp) => {
     });
 
     if (!otpRecord) {
-      throw new Error('Invalid OTP or OTP not found');
+      const err = new Error('Invalid OTP or OTP not found');
+      err.statusCode = 400;
+      throw err;
     }
 
     // Check if expired
@@ -235,7 +251,9 @@ const verifyOTP = async (identifierOrIdentifiers, otp) => {
         where: { identifier: { in: identifiers }, otp: otpRecord.otp },
         data: { isVerified: true },
       });
-      throw new Error('OTP has expired. Please request a new one.');
+      const err = new Error('OTP has expired. Please request a new one.');
+      err.statusCode = 400;
+      throw err;
     }
 
     // Check attempts
@@ -244,7 +262,9 @@ const verifyOTP = async (identifierOrIdentifiers, otp) => {
         where: { identifier: { in: identifiers }, otp: otpRecord.otp },
         data: { lockedUntil: new Date(Date.now() + OTP.LOCK_MINUTES * 60 * 1000) },
       });
-      throw new Error('Account locked due to multiple incorrect OTP attempts. Please try again after 10 minutes.');
+      const err = new Error('Account locked due to multiple incorrect OTP attempts. Please try again after 10 minutes.');
+      err.statusCode = 429;
+      throw err;
     }
 
     // Verify OTP
@@ -265,10 +285,14 @@ const verifyOTP = async (identifierOrIdentifiers, otp) => {
         });
 
         if (nextAttempts >= OTP.MAX_ATTEMPTS) {
-          throw new Error('Account locked due to multiple incorrect OTP attempts. Please try again after 10 minutes.');
+          const err = new Error('Account locked due to multiple incorrect OTP attempts. Please try again after 10 minutes.');
+          err.statusCode = 429;
+          throw err;
         }
 
-        throw new Error('Invalid OTP. Please try again.');
+        const err = new Error('Invalid OTP. Please try again.');
+        err.statusCode = 400;
+        throw err;
     }
 
       // Mark OTP as verified after successful verification

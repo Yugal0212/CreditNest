@@ -12,7 +12,7 @@ module.exports = {
     LENGTH: 6,
     EXPIRY_MINUTES: 5,
     MAX_ATTEMPTS: 3,
-    MAX_REQUESTS_PER_HOUR: 3,
+    MAX_REQUESTS_PER_HOUR: 20,
     LOCK_MINUTES: 10,
   },
 

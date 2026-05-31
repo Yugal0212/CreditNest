@@ -11,7 +11,6 @@ import { link } from 'fs'
 
 import PwaManager from '@/components/pwa/PwaManager';
 import OfflineIndicator  from '@/components/OfflineIndicator';
-import { GlobalPreloader } from '@/components/GlobalPreloader';
 import { SWRProvider } from '@/contexts/SWRProvider';
 
 const _geist = Geist({ subsets: ['latin'] })
@@ -91,7 +90,6 @@ export default function RootLayout({
             <AuthProvider>
               <NotificationProvider>
                 <LanguageProvider>
-                  <GlobalPreloader />
                   {children}
                   <Analytics />
                 </LanguageProvider>
