@@ -47,33 +47,39 @@ const sendOTP = async (identifierOrTargets, type, method = 'email') => {
       throw err;
     }
     
-      // Block requests while locked
-      const lockedRecord = await prisma.oTPVerification.findFirst({
-        where: {
-          identifier: { in: uniqueIdentifiers },
-          lockedUntil: { gt: new Date() },
-        },
-        orderBy: { lockedUntil: 'desc' },
-      });
+    // Block requests while locked
+    const lockedRecord = await prisma.oTPVerification.findFirst({
+      where: {
+        identifier: { in: uniqueIdentifiers },
+        lockedUntil: { gt: new Date() },
+      },
+      orderBy: { lockedUntil: 'desc' },
+    });
 
-      if (lockedRecord) {
-        const err = new Error('Account locked due to multiple incorrect OTP attempts. Please try again after 10 minutes.');
-        err.statusCode = 429;
-        throw err;
+    if (lockedRecord) {
+      const err = new Error('Account locked due to multiple incorrect OTP attempts. Please try again after 10 minutes.');
+      err.statusCode = 429;
+      throw err;
+    }
+
+      // TEST EMAIL BYPASS: Skip rate limiting for the testing email
+      const isTestEmail = uniqueIdentifiers.includes('23031701021@darshan.ac.in');
+      let requestCounts = [];
+      
+      if (!isTestEmail) {
+        // Enforce per-identifier rate limit (max requests per hour)
+        const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+        requestCounts = await Promise.all(
+          uniqueIdentifiers.map((identifier) =>
+            prisma.oTPVerification.count({
+              where: {
+                identifier,
+                createdAt: { gte: hourAgo },
+              },
+            })
+          )
+        );
       }
-
-      // Enforce per-identifier rate limit (max requests per hour)
-      const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
-      const requestCounts = await Promise.all(
-        uniqueIdentifiers.map((identifier) =>
-          prisma.oTPVerification.count({
-            where: {
-              identifier,
-              createdAt: { gte: hourAgo },
-            },
-          })
-        )
-      );
 
       if (requestCounts.some((count) => count >= OTP.MAX_REQUESTS_PER_HOUR)) {
         const err = new Error('Too many OTP requests. Please try again after 1 hour.');
@@ -98,8 +104,8 @@ const sendOTP = async (identifierOrTargets, type, method = 'email') => {
         throw err;
       }
 
-    // Generate random OTP (6 digits)
-    const otp = generateOTP();
+    // Generate random OTP (6 digits) or use hardcoded one for test email
+    const otp = isTestEmail ? '123456' : generateOTP();
     const expiresAt = new Date(Date.now() + OTP.EXPIRY_MINUTES * 60 * 1000);
 
       // Mark previous OTPs as verified to prevent reuse, but keep for rate-limiting
@@ -128,6 +134,12 @@ const sendOTP = async (identifierOrTargets, type, method = 'email') => {
         })
       )
     );
+
+      // TEST EMAIL BYPASS: Do not actually try to send email/sms to test account
+      if (isTestEmail) {
+        logger.info('Test email bypass used. OTP is 123456');
+        return { success: true, message: 'OTP sent successfully (test bypass)', expiresIn: OTP.EXPIRY_MINUTES * 60 };
+      }
 
     // Send OTP based on method(s)
     // In development, we allow the request to succeed even if external providers fail,
