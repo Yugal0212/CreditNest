@@ -149,27 +149,106 @@ export default function Page() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Image 
-            src="/CreditNest.png" 
-            alt="CreditNest Logo" 
-            width={48}
-            height={48}
-            className="object-contain animate-pulse"
-            priority
-          />
-          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-        </div>
+      <div className="fixed inset-0 z-[9999] bg-background flex flex-col items-center justify-center overflow-hidden">
+        {/* Background glow effects */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-primary/20 rounded-full blur-[80px] pointer-events-none" />
+        
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
+          className="relative z-10 flex flex-col items-center gap-6"
+        >
+          {/* Logo container with pulse ring */}
+          <div className="relative">
+            <motion.div
+              animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0, 0.3] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+              className="absolute inset-0 rounded-2xl bg-primary"
+            />
+            <div className="relative bg-card border border-border p-4 rounded-2xl shadow-xl shadow-primary/10">
+              <Image 
+                src="/CreditNest.png" 
+                alt="CreditNest Logo" 
+                width={96}
+                height={96}
+                className="object-contain drop-shadow-md"
+                priority
+                unoptimized
+              />
+            </div>
+          </div>
+
+          {/* Loading text and bar */}
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex items-center" style={{ fontFamily: '"Outfit", "SF Pro Display", -apple-system, sans-serif' }}>
+              <span className="text-[32px] font-black text-foreground tracking-[-0.04em]">Credit</span>
+              <span className="text-[32px] font-black tracking-[-0.04em] text-transparent bg-clip-text bg-gradient-to-r from-[#6366f1] to-[#10b981]">Nest</span>
+            </div>
+            <div className="w-32 h-1.5 bg-muted rounded-full overflow-hidden">
+              <motion.div
+                initial={{ x: '-100%' }}
+                animate={{ x: '100%' }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                className="w-1/2 h-full bg-primary rounded-full"
+              />
+            </div>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">
+              {t('common.loading', 'Loading Experience...')}
+            </p>
+          </div>
+        </motion.div>
       </div>
     )
   }
 
-  // While redirecting an authenticated user, avoid rendering landing page content.
+  // While redirecting an authenticated user, keep the premium preloader visible
   if (user) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="fixed inset-0 z-[9999] bg-background flex flex-col items-center justify-center overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-primary/20 rounded-full blur-[80px] pointer-events-none" />
+        
+        <motion.div
+          initial={{ opacity: 1, scale: 1 }}
+          className="relative z-10 flex flex-col items-center gap-6"
+        >
+          <div className="relative">
+            <motion.div
+              animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0, 0.3] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+              className="absolute inset-0 rounded-2xl bg-primary"
+            />
+            <div className="relative bg-card border border-border p-4 rounded-2xl shadow-xl shadow-primary/10">
+              <Image 
+                src="/CreditNest.png" 
+                alt="CreditNest Logo" 
+                width={96}
+                height={96}
+                className="object-contain drop-shadow-md"
+                priority
+                unoptimized
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex items-center" style={{ fontFamily: '"Outfit", "SF Pro Display", -apple-system, sans-serif' }}>
+              <span className="text-[32px] font-black text-foreground tracking-[-0.04em]">Credit</span>
+              <span className="text-[32px] font-black tracking-[-0.04em] text-transparent bg-clip-text bg-gradient-to-r from-[#6366f1] to-[#10b981]">Nest</span>
+            </div>
+            <div className="w-32 h-1.5 bg-muted rounded-full overflow-hidden">
+              <motion.div
+                initial={{ x: '-100%' }}
+                animate={{ x: '100%' }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                className="w-1/2 h-full bg-primary rounded-full"
+              />
+            </div>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">
+              {t('common.loading', 'Loading Experience...')}
+            </p>
+          </div>
+        </motion.div>
       </div>
     )
   }
@@ -206,17 +285,21 @@ export default function Page() {
 
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2 group shrink-0">
-              <Image 
-                src="/CreditNest.png" 
-                alt="CreditNest Logo" 
-                width={36}
-                height={36}
-                className="object-contain"
-                priority
-              />
-              <div>
-                <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
-                  CreditNest
+              <div className="relative flex items-center justify-center w-[54px] h-[54px]">
+                <Image 
+                  src="/CreditNest.png" 
+                  alt="CreditNest Logo" 
+                  fill
+                  className="object-contain scale-[1.15]"
+                  priority
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', fontFamily: '"Outfit", "SF Pro Display", -apple-system, sans-serif', marginLeft: '2px' }}>
+                <span className="text-[26px] font-black text-foreground tracking-[-0.04em]">
+                  Credit
+                </span>
+                <span className="text-[26px] font-black tracking-[-0.04em] text-transparent bg-clip-text bg-gradient-to-r from-[#6366f1] to-[#10b981]">
+                  Nest
                 </span>
               </div>
             </Link>

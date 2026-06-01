@@ -173,28 +173,42 @@ export const Sidebar = () => {
       }}>
         {/* Logo image */}
         <div style={{
-          width: '38px',
-          height: '38px',
-          borderRadius: '10px',
+          width: '64px',
+          height: '64px',
+          borderRadius: '12px',
           overflow: 'hidden',
           flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          position: 'relative',
         }}>
           <img
             src="/CreditNest.png"
             alt="CreditNest Logo"
-            style={{ width: '38px', height: '38px', objectFit: 'contain' }}
+            style={{ width: '100%', height: '100%', objectFit: 'contain', transform: 'scale(1.2)' }}
           />
         </div>
 
         {/* Brand name + slogan */}
-        <div style={{ minWidth: 0 }}>
-          <p style={{ fontSize: '15px', fontWeight: 700, color: '#fff', lineHeight: 1, margin: 0, letterSpacing: '-0.025em', whiteSpace: 'nowrap' }}>
-            CreditNest
-          </p>
-          <p style={{ fontSize: '9.5px', color: 'rgba(255,255,255,0.32)', lineHeight: 1, marginTop: '4px', fontWeight: 400, letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
+        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', fontFamily: '"Outfit", "SF Pro Display", -apple-system, sans-serif' }}>
+            <span style={{ fontSize: '22px', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.04em', lineHeight: 1 }}>
+              Credit
+            </span>
+            <span style={{ 
+              fontSize: '22px', 
+              fontWeight: 900, 
+              letterSpacing: '-0.04em', 
+              lineHeight: 1,
+              background: 'linear-gradient(to right, #818cf8, #34d399)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent'
+            }}>
+              Nest
+            </span>
+          </div>
+          <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', lineHeight: 1, marginTop: '5px', fontWeight: 500, letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
             Smart credit · Built for India
           </p>
         </div>

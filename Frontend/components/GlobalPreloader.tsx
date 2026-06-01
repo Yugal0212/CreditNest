@@ -10,21 +10,10 @@ export function GlobalPreloader() {
   const isDark = theme === 'dark';
 
   useEffect(() => {
-    // Only show the preloader if running as a standalone PWA
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                         (window.navigator as any).standalone || 
-                         document.referrer.includes('android-app://');
-    
-    if (!isStandalone) {
-      setIsLoading(false);
-      return;
-    }
-
-    // Artificial slight delay to ensure smooth CSS loading and hydration
-    // In production this might be tied to actual app readiness or router events
+    // Show the preloader on initial page load for a premium branding experience.
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 800);
+    }, 1200);
 
     return () => clearTimeout(timer);
   }, []);
@@ -72,8 +61,8 @@ export function GlobalPreloader() {
                 src="/CreditNest.png"
                 alt="CreditNest Logo"
                 style={{
-                  width: '144px',
-                  height: '144px',
+                  width: '180px',
+                  height: '180px',
                   objectFit: 'contain',
                   position: 'relative',
                   zIndex: 1,
@@ -87,17 +76,22 @@ export function GlobalPreloader() {
               transition={{ delay: 0.2, duration: 0.5 }}
               style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}
             >
-              <h1 style={{
-                fontSize: '24px',
-                fontWeight: 800,
-                letterSpacing: '-0.02em',
-                background: 'linear-gradient(to right, #6366f1, #10b981)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                margin: 0
-              }}>
-                CreditNest
-              </h1>
+              <div style={{ display: 'flex', alignItems: 'center', fontFamily: '"Outfit", "SF Pro Display", -apple-system, sans-serif' }}>
+                <span style={{ fontSize: '36px', fontWeight: 900, color: isDark ? '#ffffff' : '#0f172a', letterSpacing: '-0.04em', lineHeight: 1 }}>
+                  Credit
+                </span>
+                <span style={{ 
+                  fontSize: '36px', 
+                  fontWeight: 900, 
+                  letterSpacing: '-0.04em', 
+                  lineHeight: 1,
+                  background: 'linear-gradient(to right, #6366f1, #10b981)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }}>
+                  Nest
+                </span>
+              </div>
               
               {/* Premium minimal loading bar */}
               <div style={{

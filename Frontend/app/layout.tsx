@@ -7,17 +7,17 @@ import { ThemeProvider } from '@/contexts/ThemeContext'
 import { NotificationProvider } from '@/contexts/NotificationContext'
 import './globals.css'
 import '@/styles/google-translate.css'
-import { link } from 'fs'
 
 import PwaManager from '@/components/pwa/PwaManager';
 import OfflineIndicator  from '@/components/OfflineIndicator';
 import { SWRProvider } from '@/contexts/SWRProvider';
+import { GlobalPreloader } from '@/components/GlobalPreloader';
 
 const _geist = Geist({ subsets: ['latin'] })
 const _geistMono = Geist_Mono({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://creditnest.com'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://credit-nest.vercel.app'),
   title: {
     default: 'CreditNest - Kirana & Canteen Credit Management System',
     template: '%s | CreditNest',
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'CreditNest - Kirana & Canteen Credit Management System',
     description: 'Modern credit management system for Indian Kirana stores & canteens. Track digital khata and grow your business.',
-    url: 'https://creditnest.com',
+    url: 'https://credit-nest.vercel.app',
     siteName: 'CreditNest',
     images: [
       {
@@ -111,11 +111,11 @@ export default function RootLayout({
               "@context": "https://schema.org",
               "@type": "WebSite",
               "name": "CreditNest",
-              "url": "https://creditnest.com",
+              "url": "https://credit-nest.vercel.app",
               "description": "Modern credit management system for Indian Kirana stores & canteens",
               "potentialAction": {
                 "@type": "SearchAction",
-                "target": "https://creditnest.com/search?q={search_term_string}",
+                "target": "https://credit-nest.vercel.app/search?q={search_term_string}",
                 "query-input": "required name=search_term_string"
               }
             })
@@ -128,8 +128,8 @@ export default function RootLayout({
               "@context": "https://schema.org",
               "@type": "Organization",
               "name": "CreditNest",
-              "url": "https://creditnest.com",
-              "logo": "https://creditnest.com/CreditNest.png",
+              "url": "https://credit-nest.vercel.app",
+              "logo": "https://credit-nest.vercel.app/CreditNest.png",
               "sameAs": [
                 "https://twitter.com/creditnest",
                 "https://www.linkedin.com/company/creditnest"
@@ -179,6 +179,7 @@ export default function RootLayout({
       <body className="font-sans antialiased bg-background text-foreground transition-colors duration-300">
         <OfflineIndicator />
         <ThemeProvider>
+          <GlobalPreloader />
           <SWRProvider>
             <AuthProvider>
               <NotificationProvider>
