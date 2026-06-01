@@ -951,10 +951,11 @@ exports.updateUserStatus = asyncHandler(async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    if (typeof isActive === 'boolean') {
+    if (isActive !== undefined) {
+      const activeState = isActive === true || isActive === 'true';
       await prisma.user.update({
         where: { id: owner.userId },
-        data: { isActive },
+        data: { isActive: activeState },
       });
     }
 
@@ -983,10 +984,11 @@ exports.updateUserStatus = asyncHandler(async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    if (typeof isActive === 'boolean') {
+    if (isActive !== undefined) {
+      const activeState = isActive === true || isActive === 'true';
       await prisma.user.update({
         where: { id: customer.userId },
-        data: { isActive },
+        data: { isActive: activeState },
       });
     }
 

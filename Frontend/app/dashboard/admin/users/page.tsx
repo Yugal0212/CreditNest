@@ -249,14 +249,14 @@ export default function AdminUsersPage() {
 
   const handleToggleActive = async (u: User) => {
     try {
+      const newActiveState = (u.isActive === false || String(u.isActive) === 'false') ? true : false;
       await adminAPI.updateUserStatus(u.role, u.id, {
-        isActive: u.isActive === false,
-        ...(u.role === 'shop_owner' && u.isActive !== false ? { shopStatus: 'SUSPENDED' } : {}),
-        ...(u.role === 'shop_owner' && u.isActive === false ? { shopStatus: 'ACTIVE' } : {}),
+        isActive: newActiveState,
+        ...(u.role === 'shop_owner' ? { shopStatus: newActiveState ? 'ACTIVE' : 'SUSPENDED' } : {}),
       });
       toast({
         title: 'Success',
-        description: u.isActive !== false ? 'User deactivated' : 'User activated',
+        description: newActiveState ? 'User activated' : 'User deactivated',
       });
       fetchUsers();
     } catch (error: unknown) {
@@ -363,8 +363,10 @@ export default function AdminUsersPage() {
                 <p className="py-12 text-center text-muted-foreground">No users found.</p>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {users.map((u, i) => (
-                    <Card key={`${u.role}-${u.id}`} className={cn('py-4', u.isActive === false && 'opacity-60')}>
+                  {users.map((u, i) => {
+                    const isUserInactive = u.isActive === false || String(u.isActive) === 'false';
+                    return (
+                    <Card key={`${u.role}-${u.id}`} className={cn('py-4', isUserInactive && 'opacity-60')}>
                       <CardContent className="space-y-3 px-4">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex min-w-0 gap-3">
@@ -381,7 +383,7 @@ export default function AdminUsersPage() {
                           <div className="flex shrink-0 gap-1">
                             <Button size="icon-sm" variant="ghost" onClick={() => openEdit(u)} aria-label="Edit"><Pencil className="h-3.5 w-3.5" /></Button>
                             <Button size="icon-sm" variant="ghost" onClick={() => handleToggleActive(u)} aria-label="Toggle active">
-                              {u.isActive !== false ? <UserX className="h-3.5 w-3.5 text-amber-600" /> : <UserCheck className="h-3.5 w-3.5 text-emerald-600" />}
+                              {!isUserInactive ? <UserX className="h-3.5 w-3.5 text-amber-600" /> : <UserCheck className="h-3.5 w-3.5 text-emerald-600" />}
                             </Button>
                             <Button size="icon-sm" variant="ghost" onClick={() => { setSelectedUser(u); setDeleteOpen(true); }} aria-label="Deactivate"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                           </div>
@@ -394,11 +396,12 @@ export default function AdminUsersPage() {
                           {u.role === 'customer' && (
                             <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Outstanding</dt><dd className={cn('font-bold', u.outstanding ? 'text-destructive' : 'text-emerald-600')}>₹{u.outstanding ?? 0}</dd></div>
                           )}
-                          <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Status</dt><dd className="capitalize">{u.status} · {u.isActive !== false ? 'Active' : 'Inactive'}</dd></div>
+                          <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Status</dt><dd className="capitalize">{u.status} · {!isUserInactive ? 'Active' : 'Inactive'}</dd></div>
                         </dl>
                       </CardContent>
                     </Card>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
