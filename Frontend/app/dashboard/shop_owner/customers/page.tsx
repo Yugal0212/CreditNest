@@ -11,6 +11,7 @@ import {
 import useSWR from 'swr';
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { shopOwnerAPI } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
@@ -77,7 +78,7 @@ export default function ShopOwnerCustomers() {
   );
 
   const customers: Customer[] = swrData?.customers || [];
-  const totalPages = swrData?.pagination?.totalPages || 1;
+  const totalPages = swrData?.totalPages || 1;
   const isLoading = !swrData && isSwrLoading;
 
   const fetchCustomers = () => mutate();
@@ -252,15 +253,15 @@ export default function ShopOwnerCustomers() {
             </div>
           ) : (
             <div className="space-y-2">
-              {useMemo(() => customers.map((customer, i) => (
+              {customers.map((customer, i) => (
                 <div key={customer.id}
                  
                   className="glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all hover:border-indigo-500/20 dark:border-indigo-400/20 transition-all group p-4">
                   <div className="flex items-center gap-3">
                     {/* Avatar */}
-                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${gradients[i % gradients.length]} flex items-center justify-center text-white text-base font-black shadow-lg flex-shrink-0 overflow-hidden`}>
+                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${gradients[i % gradients.length]} flex items-center justify-center text-white text-base font-black shadow-lg flex-shrink-0 overflow-hidden relative`}>
                       {customer.avatar ? (
-                        <img src={customer.avatar} alt={customer.name} className="w-full h-full object-cover" />
+                        <Image src={customer.avatar} alt={customer.name} fill className="object-cover" sizes="48px" unoptimized />
                       ) : (
                         customer.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
                       )}
@@ -350,7 +351,7 @@ export default function ShopOwnerCustomers() {
                     </p>
                   </div>
                 </div>
-              )), [customers, t, router])}
+              ))}
             </div>
           )}
 
@@ -483,8 +484,11 @@ export default function ShopOwnerCustomers() {
                   {/* Avatar */}
                   <div className="flex flex-col items-center gap-2 mb-2">
                     <div className="relative group">
-                      <div className="w-20 h-20 rounded-full overflow-hidden bg-gradient-to-br from-primary to-indigo-500 flex items-center justify-center border-4 border-background shadow-xl">
-                        {avatarPreview ? <img src={avatarPreview} alt="Preview" className="w-full h-full object-cover" /> : <User className="w-8 h-8 text-white" />}
+                      <div className="w-20 h-20 rounded-full overflow-hidden bg-gradient-to-br from-primary to-indigo-500 flex items-center justify-center border-4 border-background shadow-xl relative">
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Upload className="w-6 h-6 text-white" />
+                        </div>
+                        {avatarPreview ? <Image src={avatarPreview} alt="Preview" fill className="object-cover" sizes="80px" unoptimized /> : <User className="w-8 h-8 text-white" />}
                       </div>
                       <label className="absolute bottom-0 right-0 p-1.5 bg-primary text-white rounded-full cursor-pointer hover:bg-teal-700 shadow-lg">
                         <Upload className="w-3.5 h-3.5" />

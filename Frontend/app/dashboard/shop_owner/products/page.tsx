@@ -107,7 +107,7 @@ export default function ShopOwnerProducts() {
         const res = await shopOwnerAPI.getProducts({ page, limit: 20, category: categoryFilter || undefined });
         return {
           products: res.data.products || [],
-          totalPages: res.data.pagination?.totalPages || 1
+          totalPages: res.data.totalPages || 1
         };
       }
     },

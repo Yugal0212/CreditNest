@@ -50,11 +50,15 @@ export function TableSkeleton({ columns = 5, rows = 6 }: TableSkeletonProps) {
             </div>
 
             {/* Remaining columns */}
-            {Array.from({ length: columns - 1 }).map((_, c) => (
-              <div key={`td-${r}-${c}`} className="w-full">
-                <Skeleton className={`h-4 w-[${Math.floor(Math.random() * 40) + 40}%]`} />
-              </div>
-            ))}
+            {Array.from({ length: columns - 1 }).map((_, c) => {
+              // Deterministic pseudo-random width to prevent CLS and Hydration Mismatches
+              const width = 40 + ((r * 7 + c * 13) % 40);
+              return (
+                <div key={`td-${r}-${c}`} className="w-full">
+                  <Skeleton className="h-4" style={{ width: `${width}%` }} />
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>

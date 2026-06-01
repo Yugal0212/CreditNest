@@ -7,7 +7,8 @@ import {
   ShoppingBag, RefreshCw, Bell, ChevronRight, CheckSquare, Square,
 } from 'lucide-react';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import useSWR from 'swr';
 import { shopOwnerAPI } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -43,37 +44,41 @@ const gradients = [
 export default function ShopOwnerOrders() {
   const { t } = useTranslation();
   const { language } = useLanguage();
-  const [orders, setOrders] = useState<OrderRequest[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<Record<string, string[]>>({});
 
-  useEffect(() => {
-    fetchOrders();
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchOrders, 30000);
-    return () => clearInterval(interval);
-  }, [language]);
-
-  const fetchOrders = async () => {
-    try {
-      setIsLoading(true);
+  // SWR: auto-polls every 30s, revalidates on tab focus, dedupes for 20s
+  const {
+    data: swrData,
+    isLoading,
+    mutate,
+  } = useSWR(
+    ['orderRequests', language],
+    async () => {
       const res = await shopOwnerAPI.getOrderRequests({ limit: 100 });
-      const allOrders = res.data.orders || [];
-
-      setOrders(allOrders);
-      const initialSelections: Record<string, string[]> = {};
-      allOrders.forEach((order: OrderRequest) => {
-        initialSelections[order.id] = order.items.map((_, idx) => `${order.id}:${idx}`);
+      const allOrders: OrderRequest[] = res.data.orders || [];
+      // Initialise selections when data first loads
+      setSelectedItems((prev) => {
+        const next: Record<string, string[]> = { ...prev };
+        allOrders.forEach((order) => {
+          if (!next[order.id]) {
+            next[order.id] = order.items.map((_, idx) => `${order.id}:${idx}`);
+          }
+        });
+        return next;
       });
-      setSelectedItems(initialSelections);
-    } catch (error: any) {
-      toast({ title: t('common.error', 'Error'), description: error.response?.data?.message || t('orders_page.error_load', 'Failed to load order requests'), variant: 'destructive' });
-    } finally {
-      setIsLoading(false);
+      return allOrders;
+    },
+    {
+      refreshInterval: 30_000,        // auto-poll every 30s for new orders
+      revalidateOnFocus: true,         // refetch when user returns to the tab
+      dedupingInterval: 20_000,        // prevent double-fires within 20s
+      keepPreviousData: true,
     }
-  };
+  );
+
+  const orders: OrderRequest[] = swrData || [];
 
   const toggleItemSelection = (orderId: string, itemKey: string) => {
     setSelectedItems((prev) => {
@@ -122,9 +127,11 @@ export default function ShopOwnerOrders() {
         title: `✅ ${t('orders_page.approved_title', 'Approved!')}`,
         description: t('orders_page.approved_desc', '₹{{amount}} credit added to {{name}}\'s account', { amount: approvedAmount.toLocaleString(), name: order.customerName }),
       });
-      setOrders(prev => prev.filter(o => o.id !== order.id));
+      // Optimistic: remove approved order from list immediately
+      mutate((prev) => prev?.filter((o) => o.id !== order.id), false);
     } catch (error: any) {
       toast({ title: t('common.error', 'Error'), description: error.response?.data?.message || t('orders_page.error_approve', 'Failed to approve order'), variant: 'destructive' });
+      mutate(); // revert on error
     } finally {
       setActionLoading(null);
     }
@@ -139,9 +146,11 @@ export default function ShopOwnerOrders() {
         title: t('orders_page.rejected_title', 'Rejected'),
         description: t('orders_page.rejected_desc', 'Order request from {{name}} was rejected', { name: customerName }),
       });
-      setOrders(prev => prev.filter(o => o.id !== orderId));
+      // Optimistic: remove rejected order from list immediately
+      mutate((prev) => prev?.filter((o) => o.id !== orderId), false);
     } catch (error: any) {
       toast({ title: t('common.error', 'Error'), description: error.response?.data?.message || t('orders_page.error_reject', 'Failed to reject order'), variant: 'destructive' });
+      mutate(); // revert on error
     } finally {
       setActionLoading(null);
     }
@@ -177,7 +186,7 @@ export default function ShopOwnerOrders() {
               <p className="text-sm sm:text-base text-muted-foreground mt-1">{t('orders_page.subtitle')}</p>
             </div>
             <button
-              onClick={fetchOrders}
+              onClick={() => mutate()}
               className="w-10 h-10 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 flex items-center justify-center transition-colors flex-shrink-0"
               title={t('common.refresh', 'Refresh')}
             >

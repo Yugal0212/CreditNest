@@ -21,5 +21,21 @@
   "shortcuts": [
     { "name": "Dashboard", "short_name": "Home",  "url": "/dashboard", "description": "Open dashboard" },
     { "name": "Login",     "short_name": "Login", "url": "/login",     "description": "Sign in"        }
+  ],
+  "screenshots": [
+    {
+      "src": "/dashboard_mockup.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "CreditNest Dashboard"
+    },
+    {
+      "src": "/creditnest_hero.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "CreditNest Mobile View"
+    }
   ]
 }

@@ -142,10 +142,69 @@ const validate = (req, res, next) => {
   next();
 };
 
+/**
+ * Reusable pagination query validation (page, limit)
+ */
+const paginationQuery = [
+  query('page')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('page must be a positive integer')
+    .toInt(),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 200 })
+    .withMessage('limit must be between 1 and 200')
+    .toInt(),
+];
+
+/**
+ * Cursor pagination query validation (cursor, limit)
+ */
+const cursorPaginationQuery = [
+  query('cursor')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('cursor must be a positive integer')
+    .toInt(),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 200 })
+    .withMessage('limit must be between 1 and 200')
+    .toInt(),
+];
+
+/**
+ * Combined history endpoint query validation
+ */
+const historyQuery = [
+  ...paginationQuery,
+  query('type')
+    .optional()
+    .isIn(['credit', 'payment', 'all'])
+    .withMessage('type must be credit, payment, or all'),
+  query('customerId')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('customerId must be a positive integer')
+    .toInt(),
+  query('startDate')
+    .optional()
+    .isISO8601()
+    .withMessage('startDate must be a valid ISO 8601 date'),
+  query('endDate')
+    .optional()
+    .isISO8601()
+    .withMessage('endDate must be a valid ISO 8601 date'),
+];
+
 module.exports = {
   authValidation,
   customerValidation,
   productValidation,
   transactionValidation,
+  paginationQuery,
+  cursorPaginationQuery,
+  historyQuery,
   validate,
 };

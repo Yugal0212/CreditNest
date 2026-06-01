@@ -87,13 +87,15 @@ export default function AdminAnalyticsPage() {
           </div>
 
           {isLoading ? (
-            <AdminAnalyticsSkeleton />
+            <div className="min-h-[500px]">
+              <AdminAnalyticsSkeleton />
+            </div>
           ) : !data ? (
-             <div className="text-center py-20 glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all rounded-2xl">
+             <div className="text-center py-20 min-h-[500px] flex items-center justify-center glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all rounded-2xl">
                <p className="text-muted-foreground font-medium">Analytics unavailable for this period.</p>
              </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-6 min-h-[500px]">
               
               {/* Top Level Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

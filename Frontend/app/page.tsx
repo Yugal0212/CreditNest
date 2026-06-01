@@ -7,6 +7,7 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from '@/hooks/use-toast'
 import Link from 'next/link'
+import Image from 'next/image'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { useTranslation } from 'react-i18next'
 import {
@@ -150,10 +151,13 @@ export default function Page() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <img 
+          <Image 
             src="/CreditNest.png" 
             alt="CreditNest Logo" 
-            className="w-12 h-12 object-contain animate-pulse"
+            width={48}
+            height={48}
+            className="object-contain animate-pulse"
+            priority
           />
           <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
@@ -202,10 +206,13 @@ export default function Page() {
 
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2 group shrink-0">
-              <img 
+              <Image 
                 src="/CreditNest.png" 
                 alt="CreditNest Logo" 
-                className="w-9 h-9 object-contain"
+                width={36}
+                height={36}
+                className="object-contain"
+                priority
               />
               <div>
                 <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">

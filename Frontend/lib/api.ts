@@ -286,7 +286,7 @@ export const shopOwnerAPI = {
   getDashboardStats: () => api.get('/shop-owner/dashboard/stats'),
 
   // Customers
-  getCustomers: (params?: { page?: number; limit?: number; status?: string; search?: string }) =>
+  getCustomers: (params?: { cursor?: number | string; page?: number; limit?: number; status?: string; search?: string }) =>
     api.get('/shop-owner/customers', { params }),
 
   getCustomer: (customerId: string) => api.get(`/shop-owner/customers/${customerId}`),
@@ -303,7 +303,7 @@ export const shopOwnerAPI = {
   deleteCustomer: (customerId: string) => api.delete(`/shop-owner/customers/${customerId}`),
 
   // Products
-  getProducts: (params?: { page?: number; limit?: number; category?: string; stockStatus?: string; search?: string }) =>
+  getProducts: (params?: { cursor?: number | string; page?: number; limit?: number; category?: string; stockStatus?: string; search?: string }) =>
     api.get('/shop-owner/products', { params }),
 
   getProduct: (productId: string) => api.get(`/shop-owner/products/${productId}`),
@@ -325,6 +325,7 @@ export const shopOwnerAPI = {
   }) => api.post('/shop-owner/transactions/credit-sale', data),
 
   getTransactions: (params?: {
+    cursor?: number | string;
     page?: number;
     limit?: number;
     customerId?: string;
@@ -345,6 +346,7 @@ export const shopOwnerAPI = {
   }) => api.post('/shop-owner/payments', data),
 
   getPayments: (params?: {
+    cursor?: number | string;
     page?: number;
     limit?: number;
     customerId?: string;
@@ -358,7 +360,7 @@ export const shopOwnerAPI = {
 
   // Order Requests (Customer Requests)
   getOrderRequests: (
-    params?: { page?: number; limit?: number },
+    params?: { cursor?: number | string; page?: number; limit?: number },
     options?: { timeout?: number }
   ) =>
     api.get('/shop-owner/order-requests', { params, timeout: options?.timeout }),
@@ -380,6 +382,23 @@ export const shopOwnerAPI = {
     api.put(`/shop-owner/categories/${categoryId}`, formData, { onUploadProgress }),
 
   deleteCategory: (categoryId: string) => api.delete(`/shop-owner/categories/${categoryId}`),
+
+  // Combined History (server-filtered, paginated)
+  getHistory: (params?: {
+    type?: 'credit' | 'payment' | 'all';
+    customerId?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+    sortDir?: 'asc' | 'desc';
+  }) => api.get('/shop-owner/history', { params }),
+
+  // Lightweight customer list for dropdowns — only id + name, max 100
+  getCustomerNames: (search?: string) =>
+    api.get('/shop-owner/customers', {
+      params: { limit: 100, search: search || undefined },
+    }),
 
   // Bill Scanning & OCR
   scanBill: (formData: FormData, onUploadProgress?: (progressEvent: any) => void) =>

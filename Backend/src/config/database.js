@@ -1,8 +1,17 @@
 const { PrismaClient } = require('@prisma/client');
 
-const prismaClientInstance = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-});
+const prismaClientSingleton = () => {
+  return new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  });
+};
+
+const globalForPrisma = globalThis;
+const prismaClientInstance = globalForPrisma.prismaGlobal ?? prismaClientSingleton();
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prismaGlobal = prismaClientInstance;
+}
 
 // A robust casting utility to ensure any string IDs/foreign keys are cast to Int for PostgreSQL
 const castKeys = ['id', 'userId', 'shopId', 'customerId', 'transactionId', 'productId'];

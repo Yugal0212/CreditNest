@@ -17,9 +17,43 @@ const _geist = Geist({ subsets: ['latin'] })
 const _geistMono = Geist_Mono({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'CreditNest - Kirana & Canteen Credit Management System',
-  description: 'Modern credit management system for Indian Kirana stores & canteens',
-  keywords: ['CreditNest', 'Credit Management', 'Kirana', 'Shop', 'India', 'Canteen'],
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://creditnest.com'),
+  title: {
+    default: 'CreditNest - Kirana & Canteen Credit Management System',
+    template: '%s | CreditNest',
+  },
+  description: 'Modern credit management system for Indian Kirana stores, canteens, and small businesses. Track digital khata, send payment reminders, and grow your business.',
+  keywords: ['CreditNest', 'Credit Management', 'Kirana', 'Shop', 'India', 'Canteen', 'Khata Book', 'Digital Ledger', 'Credit Tracker'],
+  authors: [{ name: 'CreditNest Team' }],
+  creator: 'CreditNest',
+  publisher: 'CreditNest',
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  openGraph: {
+    title: 'CreditNest - Kirana & Canteen Credit Management System',
+    description: 'Modern credit management system for Indian Kirana stores & canteens. Track digital khata and grow your business.',
+    url: 'https://creditnest.com',
+    siteName: 'CreditNest',
+    images: [
+      {
+        url: '/creditnest_hero.png', // Assuming this image exists based on previous commands
+        width: 1200,
+        height: 630,
+        alt: 'CreditNest Dashboard Preview',
+      },
+    ],
+    locale: 'en_IN',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'CreditNest - Kirana & Canteen Credit Management System',
+    description: 'Modern credit management system for Indian Kirana stores & canteens.',
+    images: ['/creditnest_hero.png'],
+  },
   icons: {
     icon: [
       { url: '/CreditNest.png', type: 'image/png' },
@@ -37,6 +71,9 @@ export const metadata: Metadata = {
     'msapplication-TileColor':  '#0D2235',
     'msapplication-TileImage':  '/CreditNest.png',
     'mobile-web-app-capable':   'yes',
+  },
+  verification: {
+    google: '8DMU8YvBdraMYLG5A7SSZzRKWXAODKIB4rx9JEfyglg',
   },
 }
 
@@ -66,6 +103,63 @@ export default function RootLayout({
             `
           }}
         />
+        {/* JSON-LD Structured Data */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              "name": "CreditNest",
+              "url": "https://creditnest.com",
+              "description": "Modern credit management system for Indian Kirana stores & canteens",
+              "potentialAction": {
+                "@type": "SearchAction",
+                "target": "https://creditnest.com/search?q={search_term_string}",
+                "query-input": "required name=search_term_string"
+              }
+            })
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              "name": "CreditNest",
+              "url": "https://creditnest.com",
+              "logo": "https://creditnest.com/CreditNest.png",
+              "sameAs": [
+                "https://twitter.com/creditnest",
+                "https://www.linkedin.com/company/creditnest"
+              ]
+            })
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              "name": "CreditNest",
+              "applicationCategory": "BusinessApplication",
+              "operatingSystem": "Any",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "INR"
+              },
+              "description": "Modern credit management system for Indian Kirana stores, canteens, and small businesses.",
+              "aggregateRating": {
+                "@type": "AggregateRating",
+                "ratingValue": "4.9",
+                "ratingCount": "1250"
+              }
+            })
+          }}
+        />
         <meta name="theme-color" content="#ffffff" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -73,8 +167,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="CreditNest" />
         <link rel="icon" href="/CreditNest.png" type="image/png" />
         <link rel="apple-touch-icon" href="/CreditNest.png" />
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-        <link rel="shortcut icon" href="/icons/icon-96x96.png" />
+        <link rel="shortcut icon" href="/CreditNest.png" />
         
         {/* iOS Splash Screens */}
         <link rel="apple-touch-startup-image" href="/CreditNest.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)" />

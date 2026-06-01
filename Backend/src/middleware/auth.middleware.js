@@ -1,5 +1,6 @@
 const { verifyToken } = require('../utils/generateToken');
 const prisma = require('../config/database');
+const { getCache, setCache } = require('../config/redis');
 const logger = require('../utils/logger');
 
 const isDatabaseConnectionError = (error) => {
@@ -35,24 +36,33 @@ const authenticate = async (req, res, next) => {
 
     // Verify token
     const decoded = verifyToken(token);
+    const cacheKey = `session:${decoded.userId}`;
 
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      select: {
-        id: true,
-        email: true,
-        phone: true,
-        role: true,
-        isActive: true,
-      },
-    });
+    // 1. Check Redis Cache
+    let user = await getCache(cacheKey);
 
+    // 2. Cache Miss -> Query Database
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not found.',
+      user = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: {
+          id: true,
+          email: true,
+          phone: true,
+          role: true,
+          isActive: true,
+        },
       });
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'User not found.',
+        });
+      }
+
+      // 3. Store in Cache (1 hour TTL)
+      await setCache(cacheKey, user, 3600);
     }
 
     if (!user.isActive) {

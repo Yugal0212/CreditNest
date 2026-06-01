@@ -15,6 +15,7 @@ import { shopOwnerAPI } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTranslation } from 'react-i18next';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type CustomerInfo = {
   id: string; name: string; phone: string; email?: string; address?: string; workplace?: string;
@@ -72,8 +73,8 @@ export default function CustomerProfilePage() {
   const [showDelete, setShowDelete] = useState(false);
   const [deletingCust, setDeletingCust] = useState(false);
 
-  const fetchAll = useCallback(async () => {
-    setIsLoading(true);
+  const fetchAll = useCallback(async (showSpinner = true) => {
+    if (showSpinner && !customer) setIsLoading(true);
     try {
       const res = await shopOwnerAPI.getCustomerHistory(customerId, {});
       setCustomer(res.data.customer);
@@ -81,7 +82,9 @@ export default function CustomerProfilePage() {
       setPayments(res.data.payments || []);
     } catch (e: any) {
       toast({ title: 'Error', description: e.response?.data?.message || 'Failed to load', variant: 'destructive' });
-    } finally { setIsLoading(false); }
+    } finally { 
+      setIsLoading(false); 
+    }
   }, [customerId, language]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
@@ -227,11 +230,27 @@ export default function CustomerProfilePage() {
   if (isLoading) return (
     <ProtectedRoute requiredRole="SHOP_OWNER">
       <DashboardLayout>
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <Loader2 className="w-10 h-10 animate-spin text-teal-600 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground font-medium">Loading profile...</p>
+        <div className="max-w-3xl mx-auto space-y-5">
+          <Skeleton className="h-5 w-32" />
+          <div className="glass-card overflow-hidden">
+            <Skeleton className="h-20 w-full rounded-none" />
+            <div className="px-4 sm:px-6 pb-5 -mt-8 relative">
+              <div className="flex items-end gap-4">
+                <Skeleton className="w-16 h-16 rounded-2xl flex-shrink-0" />
+                <div className="space-y-2 pb-1">
+                  <Skeleton className="h-7 w-48" />
+                  <Skeleton className="h-4 w-64" />
+                </div>
+              </div>
+            </div>
           </div>
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            <Skeleton className="h-32 rounded-xl" />
+            <Skeleton className="h-32 rounded-xl" />
+            <Skeleton className="h-32 rounded-xl" />
+          </div>
+          <Skeleton className="h-10 w-full max-w-sm rounded-xl" />
+          <Skeleton className="h-48 rounded-xl" />
         </div>
       </DashboardLayout>
     </ProtectedRoute>
@@ -362,7 +381,7 @@ export default function CustomerProfilePage() {
               ))}
             </div>
             <div className="flex gap-2">
-              <button onClick={fetchAll} disabled={isLoading} title={t('common.refresh', 'Refresh')}
+              <button onClick={() => fetchAll()} disabled={isLoading} title={t('common.refresh', 'Refresh')}
                 className="p-2 rounded-xl border border-border bg-background/50 hover:bg-muted transition-all">
                 <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
               </button>

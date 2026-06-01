@@ -9,7 +9,8 @@ import {
   Clock, User, Tag, ArrowUpDown, Download, Sparkles, ChevronRight
 } from 'lucide-react';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import useSWR from 'swr';
 import { shopOwnerAPI } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
@@ -345,14 +346,11 @@ const PDF_LANGUAGES: Record<string, { label: string; translations: Record<string
 
 export default function ShopOwnerHistory() {
   const { t } = useTranslation();
-  const { language } = useLanguage(); // Get current website language
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { language } = useLanguage();
   const [isExporting, setIsExporting] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
 
   // Load appropriate Google Fonts for Unicode support
   useEffect(() => {
@@ -367,16 +365,10 @@ export default function ShopOwnerHistory() {
       pa: 'Noto+Sans+Gurmukhi',
       bn: 'Noto+Sans+Bengali',
     };
-
     const fontFamily = fontMap[language];
     if (fontFamily) {
-      // Check if font link already exists
       const existingLink = document.getElementById('indian-lang-font');
-      if (existingLink) {
-        existingLink.remove();
-      }
-
-      // Add Google Font link
+      if (existingLink) existingLink.remove();
       const link = document.createElement('link');
       link.id = 'indian-lang-font';
       link.rel = 'stylesheet';
@@ -398,134 +390,136 @@ export default function ShopOwnerHistory() {
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
   const [payMethodFilter, setPayMethodFilter] = useState('all');
 
-  const fetchCustomers = async () => {
-    try {
-      const res = await shopOwnerAPI.getCustomers({ page: 1, limit: 1000 });
-      setCustomers(res.data.customers || []);
-    } catch {}
-  };
-
-  const fetchAll = async () => {
-    setIsLoading(true);
-    try {
-      const [txRes, payRes] = await Promise.all([
-        shopOwnerAPI.getTransactions({ page: 1, limit: 500 }),
-        shopOwnerAPI.getPayments({ page: 1, limit: 500 }),
-      ]);
-      setTransactions(txRes.data.transactions || []);
-      setPayments(payRes.data.payments || []);
-    } catch (e: any) {
-      toast({ title: t('common.error', 'Error'), description: e.response?.data?.message || t('common.failed', 'Failed'), variant: 'destructive' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAll();
-    fetchCustomers();
-
-    const onFocus = () => fetchAll();
-    const onVisibility = () => { if (document.visibilityState === 'visible') fetchAll(); };
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ── Combined & filtered data ──
-  const combined: CombinedItem[] = useMemo(() => [
-    ...transactions.map(t => ({ ...t, _type: 'credit' as const, _date: new Date(t.date) })),
-    ...payments.map(p => ({ ...p, _type: 'payment' as const, _date: new Date(p.date) })),
-  ], [transactions, payments]);
-
-  const filtered = useMemo(() => {
+  // Compute date range from preset for the server query
+  const { resolvedStart, resolvedEnd } = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    switch (datePreset) {
+      case 'today':
+        return { resolvedStart: today.toISOString().slice(0, 10), resolvedEnd: '' };
+      case 'yesterday': {
+        const d = new Date(today); d.setDate(d.getDate() - 1);
+        const s = d.toISOString().slice(0, 10);
+        return { resolvedStart: s, resolvedEnd: s };
+      }
+      case 'week': {
+        const d = new Date(today); d.setDate(d.getDate() - 7);
+        return { resolvedStart: d.toISOString().slice(0, 10), resolvedEnd: '' };
+      }
+      case 'month': {
+        const d = new Date(today); d.setMonth(d.getMonth() - 1);
+        return { resolvedStart: d.toISOString().slice(0, 10), resolvedEnd: '' };
+      }
+      case '3months': {
+        const d = new Date(today); d.setMonth(d.getMonth() - 3);
+        return { resolvedStart: d.toISOString().slice(0, 10), resolvedEnd: '' };
+      }
+      case 'year': {
+        const d = new Date(today); d.setFullYear(d.getFullYear() - 1);
+        return { resolvedStart: d.toISOString().slice(0, 10), resolvedEnd: '' };
+      }
+      case 'custom':
+        return { resolvedStart: customStart, resolvedEnd: customEnd };
+      default:
+        return { resolvedStart: '', resolvedEnd: '' };
+    }
+  }, [datePreset, customStart, customEnd]);
 
-    const presetStart = (): Date | null => {
-      switch (datePreset) {
-        case 'today': return today;
-        case 'yesterday': { const d = new Date(today); d.setDate(d.getDate() - 1); return d; }
-        case 'week': { const d = new Date(today); d.setDate(d.getDate() - 7); return d; }
-        case 'month': { const d = new Date(today); d.setMonth(d.getMonth() - 1); return d; }
-        case '3months': { const d = new Date(today); d.setMonth(d.getMonth() - 3); return d; }
-        case 'year': { const d = new Date(today); d.setFullYear(d.getFullYear() - 1); return d; }
-        case 'custom': return customStart ? new Date(customStart) : null;
-        default: return null;
-      }
-    };
-    const presetEnd = (): Date | null => {
-      if (datePreset === 'yesterday') {
-        const d = new Date(today); d.setHours(23, 59, 59, 999); d.setDate(d.getDate() - 1); return d;
-      }
-      if (datePreset === 'custom' && customEnd) {
-        const d = new Date(customEnd); d.setHours(23, 59, 59, 999); return d;
-      }
-      return null;
-    };
+  // ── Server-filtered SWR fetch (replaces 500-record client-side fetch) ──
+  const swrKey = [
+    'history',
+    typeFilter,
+    customerFilter !== 'all' ? customerFilter : null,
+    resolvedStart,
+    resolvedEnd,
+    sortDir,
+    historyPage,
+  ];
 
-    const start = presetStart();
-    const end = presetEnd();
+  const { data: historyData, isLoading, mutate: mutateHistory } = useSWR(
+    swrKey,
+    () => shopOwnerAPI.getHistory({
+      type: typeFilter !== 'all' ? typeFilter : 'all',
+      customerId: customerFilter !== 'all' ? customerFilter : undefined,
+      startDate: resolvedStart || undefined,
+      endDate: resolvedEnd || undefined,
+      page: historyPage,
+      limit: 50,
+      sortDir,
+    }).then((r) => r.data),
+    {
+      keepPreviousData: true,
+      dedupingInterval: 30_000,
+      revalidateOnFocus: false,
+    }
+  );
+
+  // Lightweight customer list for the dropdown (limit 100, not 1000)
+  const { data: customersData } = useSWR(
+    'customerNames',
+    () => shopOwnerAPI.getCustomerNames().then((r) => r.data.customers || []),
+    { dedupingInterval: 120_000, revalidateOnFocus: false }
+  );
+  const customers: Customer[] = (customersData || []).map((c: any) => ({
+    id: String(c.id),
+    name: c.customerName,
+    phone: c.user?.phone || '',
+  }));
+
+  // Items from current page (server already filtered + sorted)
+  const serverItems: CombinedItem[] = useMemo(() => {
+    const items = historyData?.items || [];
+    return items.map((item: any) => ({ ...item, _type: item._type, _date: new Date(item.date) }));
+  }, [historyData]);
+
+  // Client-side secondary filters (amount range, status, payMethod, search)
+  // Applied on top of the already-server-filtered 50-record page
+  const filtered: CombinedItem[] = useMemo(() => {
     const minAmt = minAmount ? parseFloat(minAmount) : null;
     const maxAmt = maxAmount ? parseFloat(maxAmount) : null;
     const q = searchQuery.toLowerCase().trim();
 
-    return combined
-      .filter(item => {
-        if (typeFilter !== 'all' && item._type !== typeFilter) return false;
-        if (customerFilter !== 'all' && item.customerId !== customerFilter) return false;
-        if (start && item._date < start) return false;
-        if (end && item._date > end) return false;
+    return serverItems.filter(item => {
+      const amt = item._type === 'credit' ? (item as Transaction).totalAmount : (item as Payment).amount;
+      if (minAmt !== null && amt < minAmt) return false;
+      if (maxAmt !== null && amt > maxAmt) return false;
 
-        // amount
-        const amt = item._type === 'credit' ? (item as Transaction).totalAmount : (item as Payment).amount;
-        if (minAmt !== null && amt < minAmt) return false;
-        if (maxAmt !== null && amt > maxAmt) return false;
+      if (statusFilter !== 'all') {
+        if (item._type === 'credit') {
+          if ((item as Transaction).status !== statusFilter) return false;
+        } else {
+          if (statusFilter !== 'PAID') return false;
+        }
+      }
 
-        // status filter (credit only)
-        if (statusFilter !== 'all') {
+      if (payMethodFilter !== 'all') {
+        if (item._type === 'payment') {
+          if ((item as Payment).paymentMethod !== payMethodFilter) return false;
+        } else {
+          return false;
+        }
+      }
+
+      if (q) {
+        const name = (item.customerName || '').toLowerCase();
+        const id = String(item.id).toLowerCase();
+        if (!name.includes(q) && !id.includes(q)) {
           if (item._type === 'credit') {
-            if ((item as Transaction).status !== statusFilter) return false;
+            const products = ((item as Transaction).items || []).map(i => i.productName.toLowerCase()).join(' ');
+            if (!products.includes(q)) return false;
           } else {
-            if (statusFilter !== 'PAID') return false; // payments are always PAID
+            const notes = ((item as Payment).notes || '').toLowerCase();
+            if (!notes.includes(q)) return false;
           }
         }
+      }
 
-        // payment method filter (payment only)
-        if (payMethodFilter !== 'all') {
-          if (item._type === 'payment') {
-            if ((item as Payment).paymentMethod !== payMethodFilter) return false;
-          } else {
-            return false; // if filtering by payment method, skip credits
-          }
-        }
+      return true;
+    });
+  }, [serverItems, minAmount, maxAmount, statusFilter, payMethodFilter, searchQuery]);
 
-        // search
-        if (q) {
-          const name = item.customerName.toLowerCase();
-          const id = item.id.toLowerCase();
-          if (!name.includes(q) && !id.includes(q)) {
-            if (item._type === 'credit') {
-              const products = (item as Transaction).items.map(i => i.productName.toLowerCase()).join(' ');
-              if (!products.includes(q)) return false;
-            } else {
-              const notes = ((item as Payment).notes || '').toLowerCase();
-              if (!notes.includes(q)) return false;
-            }
-          }
-        }
-
-        return true;
-      })
-      .sort((a, b) => sortDir === 'desc'
-        ? b._date.getTime() - a._date.getTime()
-        : a._date.getTime() - b._date.getTime()
-      );
-  }, [combined, typeFilter, customerFilter, datePreset, customStart, customEnd, searchQuery, minAmount, maxAmount, statusFilter, payMethodFilter, sortDir]);
+  // Reset page when server-side filters change
+  useEffect(() => { setHistoryPage(1); }, [typeFilter, customerFilter, resolvedStart, resolvedEnd, sortDir]);
 
   // Group by date
   const dateGroups = useMemo(() => {
@@ -538,10 +532,11 @@ export default function ShopOwnerHistory() {
     return Object.entries(groups);
   }, [filtered, t]);
 
-  // Summary stats
-  const totalCredit = useMemo(() => filtered.filter(i => i._type === 'credit').reduce((s, t) => s + ((t as Transaction).totalAmount || 0), 0), [filtered]);
-  const totalPaid = useMemo(() => filtered.filter(i => i._type === 'payment').reduce((s, p) => s + ((p as Payment).amount || 0), 0), [filtered]);
+  // Summary stats — from server summary (accurate for full filter window)
+  const totalCredit = historyData?.summary?.totalCredit ?? 0;
+  const totalPaid = historyData?.summary?.totalPaid ?? 0;
   const netOutstanding = totalCredit - totalPaid;
+  const pagination = historyData?.pagination;
 
   const activeFilterCount = [
     typeFilter !== 'all', customerFilter !== 'all', datePreset !== 'all',
@@ -552,7 +547,9 @@ export default function ShopOwnerHistory() {
     setTypeFilter('all'); setCustomerFilter('all'); setDatePreset('all');
     setCustomStart(''); setCustomEnd(''); setSearchQuery('');
     setMinAmount(''); setMaxAmount(''); setStatusFilter('all'); setPayMethodFilter('all');
+    setHistoryPage(1);
   };
+
 
   // ──── Export PDF with jspdf-autotable (reliable, no html2canvas issues) ────
   const exportPDF = async () => {
@@ -812,7 +809,7 @@ export default function ShopOwnerHistory() {
               <p className="text-muted-foreground mt-1 text-xs sm:text-sm">{t('history.subtitle', 'Complete credit & payment records')}</p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <button onClick={fetchAll} disabled={isLoading}
+              <button onClick={() => mutateHistory()} disabled={isLoading}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border bg-card text-card-foreground border border-border shadow-sm text-sm font-bold hover:bg-muted transition-all">
                 <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} /> {t('common.refresh', 'Refresh')}
               </button>
@@ -1121,7 +1118,7 @@ export default function ShopOwnerHistory() {
                                   ) : null}
 
                                   <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1.5">
-                                    <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-[9px]">{item.id.slice(-8).toUpperCase()}</span>
+                                    <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-[9px]">{String(item.id).slice(-8).toUpperCase()}</span>
                                     <span>·</span>
                                     <span>{fmtTime(item.date)}</span>
                                   </p>
@@ -1231,6 +1228,30 @@ export default function ShopOwnerHistory() {
                   <button onClick={exportPDF} disabled={isExporting}
                     className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm shadow-lg shadow-red-500/20 transition-all disabled:opacity-50">
                     <Download className="w-4 h-4" /> Export PDF
+                  </button>
+                </div>
+              )}
+
+              {/* Server-side pagination controls */}
+              {pagination && pagination.totalPages > 1 && (
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <button
+                    onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                    disabled={!pagination.hasPrevPage || isLoading}
+                    className="px-4 py-2 rounded-xl border border-border text-sm font-bold disabled:opacity-40 hover:bg-muted transition-all"
+                  >
+                    ← {t('common.previous', 'Prev')}
+                  </button>
+                  <span className="text-sm text-muted-foreground font-medium">
+                    {t('common.page', 'Page')} {pagination.currentPage} / {pagination.totalPages}
+                    <span className="text-xs ml-2 opacity-60">({pagination.total} {t('common.records', 'records')})</span>
+                  </span>
+                  <button
+                    onClick={() => setHistoryPage((p) => Math.min(pagination.totalPages, p + 1))}
+                    disabled={!pagination.hasNextPage || isLoading}
+                    className="px-4 py-2 rounded-xl border border-border text-sm font-bold disabled:opacity-40 hover:bg-muted transition-all"
+                  >
+                    {t('common.next', 'Next')} →
                   </button>
                 </div>
               )}

@@ -237,7 +237,7 @@ export default function ShopOwnerDashboard() {
 
                     {/* Thin Progress Bar at Bottom */}
                     <div style={{ width: '100%', height: '3px', background: '#f1f5f9', borderRadius: '2px', overflow: 'hidden', marginTop: 'auto' }}>
-                      <div style={{ width: `${Math.max(10, Math.random() * 90)}%`, height: '100%', background: s.accent }} />
+                      <div style={{ width: `${Math.max(10, 40 + ((i * 23) % 50))}%`, height: '100%', background: s.accent }} />
                     </div>
                   </div>
                 );

@@ -68,9 +68,9 @@ app.use(
   })
 );
 
-// Body parser
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Body parser — tight default; upload routes apply their own larger limit
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
 // Language parsing (Accept-Language / x-language)
 app.use(languageMiddleware);

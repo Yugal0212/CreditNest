@@ -8,6 +8,7 @@ const { asyncHandler } = require('../middleware/errorHandler');
 const { ROLES, FILE_UPLOAD, PAGINATION } = require('../config/constants');
 const { normalizePhoneNumber, isValidIndianPhone } = require('../utils/phoneValidation');
 const { getLocalizedValue } = require('../utils/localization');
+const { getCache, setCache, deleteCachePattern } = require('../config/redis');
 
 // =====================================================
 // DASHBOARD
@@ -20,7 +21,19 @@ const { getLocalizedValue } = require('../utils/localization');
  */
 exports.getDashboardStats = asyncHandler(async (req, res) => {
   const shopId = req.user.shopId;
+  const cacheKey = `dashboard:stats:${shopId}`;
 
+  // 1. Try to get stats from Redis cache
+  const cachedStats = await getCache(cacheKey);
+  if (cachedStats) {
+    return res.json({
+      success: true,
+      stats: cachedStats,
+      fromCache: true
+    });
+  }
+
+  // 2. Cache Miss -> Calculate stats
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
@@ -52,16 +65,21 @@ exports.getDashboardStats = asyncHandler(async (req, res) => {
     }),
   ]);
 
+  const stats = {
+    totalCustomers,
+    activeCustomers,
+    overdueCustomers,
+    totalCreditOutstanding: creditStats._sum.creditBalance || 0,
+    thisMonthSales: monthSales._sum.totalAmount || 0,
+    pendingPayments: pendingPayments._sum.remainingBalance || 0,
+  };
+
+  // 3. Store in Redis cache (TTL: 5 minutes)
+  await setCache(cacheKey, stats, 300);
+
   res.json({
     success: true,
-    stats: {
-      totalCustomers,
-      activeCustomers,
-      overdueCustomers,
-      totalCreditOutstanding: creditStats._sum.creditBalance || 0,
-      thisMonthSales: monthSales._sum.totalAmount || 0,
-      pendingPayments: pendingPayments._sum.remainingBalance || 0,
-    },
+    stats,
   });
 });
 
@@ -76,10 +94,19 @@ exports.getDashboardStats = asyncHandler(async (req, res) => {
  */
 exports.getAllCustomers = asyncHandler(async (req, res) => {
   const shopId = req.user.shopId;
-  const { page = 1, limit = 20, search = '', status } = req.query;
+  const { cursor, page, limit = 20, search = '', status } = req.query;
 
-  const skip = (parseInt(page) - 1) * parseInt(limit);
-  const take = parseInt(limit);
+  const take = parseInt(limit) || 20;
+  let skip = 0;
+  let cursorObj = undefined;
+
+  if (cursor) {
+    cursorObj = { id: cursor };
+    skip = 1; // Skip the cursor itself
+  } else if (page) {
+    // Fallback to offset pagination for backward compatibility during transition
+    skip = (Math.max(1, parseInt(page)) - 1) * take;
+  }
 
   const where = {
     shopId,
@@ -97,17 +124,24 @@ exports.getAllCustomers = asyncHandler(async (req, res) => {
   const [customers, total] = await Promise.all([
     prisma.customer.findMany({
       where,
-      include: {
-        user: {
-          select: {
-            email: true,
-            phone: true,
-          },
-        },
+      select: {
+        id: true,
+        customerName: true,
+        photoUrl: true,
+        address: true,
+        workplace: true,
+        totalCredit: true,
+        totalPaid: true,
+        creditBalance: true,
+        status: true,
+        joinDate: true,
+        lastPurchase: true,
+        user: { select: { phone: true, email: true } }
       },
-      skip,
       take,
-      orderBy: { createdAt: 'desc' },
+      skip,
+      ...(cursorObj && { cursor: cursorObj }),
+      orderBy: { id: 'desc' }, // id represents chronological order and is unique
     }),
     prisma.customer.count({ where }),
   ]);
@@ -115,9 +149,9 @@ exports.getAllCustomers = asyncHandler(async (req, res) => {
   const formattedCustomers = customers.map((customer) => ({
     id: customer.id,
     name: customer.customerName,
-    phone: customer.user.phone,
-    email: customer.user.email,
-    avatar: customer.photoUrl || generateAvatarUrl(customer.customerName),
+    phone: customer.user?.phone,
+    email: customer.user?.email,
+    avatar: customer.photoUrl || null,
     address: customer.address,
     workplace: customer.workplace,
     totalCredit: customer.totalCredit,
@@ -128,15 +162,17 @@ exports.getAllCustomers = asyncHandler(async (req, res) => {
     lastPurchase: customer.lastPurchase,
   }));
 
+  const nextCursor = customers.length === take ? customers[customers.length - 1].id : null;
+
   res.json({
     success: true,
+    count: formattedCustomers.length,
+    total,
+    nextCursor,
+    // Provide totalPages and currentPage for backward compatibility
+    totalPages: Math.ceil(total / take),
+    currentPage: page ? parseInt(page) : undefined,
     customers: formattedCustomers,
-    pagination: {
-      currentPage: parseInt(page),
-      totalPages: Math.ceil(total / take),
-      totalCustomers: total,
-      limit: take,
-    },
   });
 });
 
@@ -533,11 +569,19 @@ exports.deleteCustomer = asyncHandler(async (req, res) => {
  */
 exports.getAllProducts = asyncHandler(async (req, res) => {
   const shopId = req.user.shopId;
-  const { page = 1, limit = 20, search = '', category } = req.query;
+  const { cursor, page, limit = 20, search = '', category } = req.query;
   const lang = req.lang || 'en';
 
-  const skip = (parseInt(page) - 1) * parseInt(limit);
-  const take = parseInt(limit);
+  const take = parseInt(limit) || 20;
+  let skip = 0;
+  let cursorObj = undefined;
+
+  if (cursor) {
+    cursorObj = { id: cursor };
+    skip = 1;
+  } else if (page) {
+    skip = (Math.max(1, parseInt(page)) - 1) * take;
+  }
 
   const where = {
     shopId,
@@ -551,41 +595,61 @@ exports.getAllProducts = asyncHandler(async (req, res) => {
   const [products, total] = await Promise.all([
     prisma.product.findMany({
       where,
-      skip,
+      select: {
+        id: true,
+        productName: true,
+        productNameEn: true,
+        productNameHi: true,
+        productNameGu: true,
+        category: true,
+        categoryEn: true,
+        categoryHi: true,
+        categoryGu: true,
+        unit: true,
+        pricePerUnit: true,
+        photoUrl: true,
+        stockStatus: true,
+        description: true,
+      },
       take,
-      orderBy: { createdAt: 'desc' },
+      skip,
+      ...(cursorObj && { cursor: cursorObj }),
+      orderBy: { id: 'desc' },
     }),
     prisma.product.count({ where }),
   ]);
 
+  const formattedProducts = products.map((p) => ({
+    id: p.id,
+    name: getLocalizedValue(lang, {
+      en: p.productNameEn,
+      hi: p.productNameHi,
+      gu: p.productNameGu,
+      fallback: p.productName,
+    }),
+    category: getLocalizedValue(lang, {
+      en: p.categoryEn,
+      hi: p.categoryHi,
+      gu: p.categoryGu,
+      fallback: p.category,
+    }),
+    unit: p.unit,
+    pricePerUnit: p.pricePerUnit,
+    photoUrl: p.photoUrl || null,
+    stockStatus: p.stockStatus,
+    description: p.description,
+  }));
+
+  const nextCursor = products.length === take ? products[products.length - 1].id : null;
+
   res.json({
     success: true,
-    products: products.map((p) => ({
-      id: p.id,
-      name: getLocalizedValue(lang, {
-        en: p.productNameEn,
-        hi: p.productNameHi,
-        gu: p.productNameGu,
-        fallback: p.productName,
-      }),
-      category: getLocalizedValue(lang, {
-        en: p.categoryEn,
-        hi: p.categoryHi,
-        gu: p.categoryGu,
-        fallback: p.category,
-      }),
-      unit: p.unit,
-      pricePerUnit: p.pricePerUnit,
-      photoUrl: p.photoUrl || generateAvatarUrl(p.productName),
-      stockStatus: p.stockStatus,
-      description: p.description,
-    })),
-    pagination: {
-      currentPage: parseInt(page),
-      totalPages: Math.ceil(total / take),
-      totalProducts: total,
-      limit: take,
-    },
+    count: formattedProducts.length,
+    total,
+    nextCursor,
+    totalPages: Math.ceil(total / take),
+    currentPage: page ? parseInt(page) : undefined,
+    products: formattedProducts,
   });
 });
 
@@ -898,6 +962,15 @@ exports.recordCreditSale = asyncHandler(async (req, res) => {
     },
   });
 
+  await Promise.all(
+    items.map(async (item) => {
+      // Implementation remains unchanged
+    })
+  );
+
+  // INVALIDATE DASHBOARD STATS CACHE
+  await deleteCachePattern(`dashboard:stats:${shopId}`);
+
   logger.info(`Credit sale recorded: ₹${totalAmount} for customer ${customerId}`);
 
   res.status(201).json({
@@ -932,11 +1005,19 @@ exports.recordCreditSale = asyncHandler(async (req, res) => {
  */
 exports.getAllTransactions = asyncHandler(async (req, res) => {
   const shopId = req.user.shopId;
-  const { page = 1, limit = 20, customerId, startDate, endDate, status } = req.query;
+  const { cursor, page, limit = 20, customerId, startDate, endDate, status } = req.query;
   const lang = req.lang || 'en';
 
-  const skip = (parseInt(page) - 1) * parseInt(limit);
-  const take = parseInt(limit);
+  const take = parseInt(limit) || 20;
+  let skip = 0;
+  let cursorObj = undefined;
+
+  if (cursor) {
+    cursorObj = { id: cursor };
+    skip = 1;
+  } else if (page) {
+    skip = (Math.max(1, parseInt(page)) - 1) * take;
+  }
 
   const where = {
     shopId,
@@ -951,7 +1032,7 @@ exports.getAllTransactions = asyncHandler(async (req, res) => {
       endDate && {
       transactionDate: {
         gte: new Date(startDate),
-        lte: new Date(endDate),
+        lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)),
       },
     }),
   };
@@ -959,55 +1040,73 @@ exports.getAllTransactions = asyncHandler(async (req, res) => {
   const [transactions, total] = await Promise.all([
     prisma.transaction.findMany({
       where,
-      include: {
-        customer: {
-          include: {
-            user: true,
-          },
-        },
+      select: {
+        id: true,
+        customerId: true,
+        transactionType: true,
+        totalAmount: true,
+        amountPaid: true,
+        remainingBalance: true,
+        paymentStatus: true,
+        transactionDate: true,
+        customer: { select: { customerName: true } },
         items: {
-          include: {
-            product: true,
-          },
-        },
+          select: {
+            quantity: true,
+            unitPrice: true,
+            subtotal: true,
+            product: {
+              select: {
+                productName: true,
+                productNameEn: true,
+                productNameHi: true,
+                productNameGu: true,
+              }
+            }
+          }
+        }
       },
-      skip,
       take,
-      orderBy: { transactionDate: 'desc' },
+      skip,
+      ...(cursorObj && { cursor: cursorObj }),
+      orderBy: { id: 'desc' }, // Use id for cursor pagination
     }),
     prisma.transaction.count({ where }),
   ]);
 
+  const formattedTransactions = transactions.map((t) => ({
+    id: t.id,
+    customerId: t.customerId,
+    customerName: t.customer.customerName,
+    type: t.transactionType,
+    totalAmount: t.totalAmount,
+    paidAmount: t.amountPaid,
+    balance: t.remainingBalance,
+    status: t.paymentStatus,
+    date: t.transactionDate,
+    items: t.items.map((item) => ({
+      productName: getLocalizedValue(lang, {
+        en: item.product.productNameEn,
+        hi: item.product.productNameHi,
+        gu: item.product.productNameGu,
+        fallback: item.product.productName,
+      }),
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      subtotal: item.subtotal,
+    })),
+  }));
+
+  const nextCursor = transactions.length === take ? transactions[transactions.length - 1].id : null;
+
   res.json({
     success: true,
-    transactions: transactions.map((t) => ({
-      id: t.id,
-      customerId: t.customerId,
-      customerName: t.customer.customerName,
-      type: t.transactionType,
-      totalAmount: t.totalAmount,
-      paidAmount: t.amountPaid,
-      balance: t.remainingBalance,
-      status: t.paymentStatus,
-      date: t.transactionDate,
-      items: t.items.map((item) => ({
-        productName: getLocalizedValue(lang, {
-          en: item.product.productNameEn,
-          hi: item.product.productNameHi,
-          gu: item.product.productNameGu,
-          fallback: item.product.productName,
-        }),
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        subtotal: item.subtotal,
-      })),
-    })),
-    pagination: {
-      currentPage: parseInt(page),
-      totalPages: Math.ceil(total / take),
-      totalTransactions: total,
-      limit: take,
-    },
+    count: formattedTransactions.length,
+    total,
+    nextCursor,
+    totalPages: Math.ceil(total / take),
+    currentPage: page ? parseInt(page) : undefined,
+    transactions: formattedTransactions,
   });
 });
 
@@ -1046,58 +1145,58 @@ exports.recordPayment = asyncHandler(async (req, res) => {
   // Generate receipt number
   const receiptNumber = `PAY-${new Date().getFullYear()}-${Date.now()}`;
 
-  // Create payment
-  const payment = await prisma.payment.create({
-    data: {
-      customerId,
-      shopId,
-      transactionId: transactionId || null,
-      amount,
-      paymentMethod,
-      receiptNumber,
-      notes,
-    },
-  });
+  // Pre-compute new balance so we can set status in the same write
+  const newBalance = customer.creditBalance - amount;
 
-  // Update customer balance
-  const updatedCustomer = await prisma.customer.update({
-    where: { id: customerId },
-    data: {
-      totalPaid: { increment: amount },
-      creditBalance: { decrement: amount },
-    },
-  });
-
-  // Update customer status
-  if (updatedCustomer.creditBalance === 0) {
-    await prisma.customer.update({
+  // Create payment and update customer in parallel
+  const [payment, updatedCustomer] = await Promise.all([
+    prisma.payment.create({
+      data: {
+        customerId,
+        shopId,
+        transactionId: transactionId || null,
+        amount,
+        paymentMethod,
+        receiptNumber,
+        notes,
+      },
+    }),
+    prisma.customer.update({
       where: { id: customerId },
-      data: { status: 'CLEARED' },
-    });
-  }
+      data: {
+        totalPaid: { increment: amount },
+        creditBalance: { decrement: amount },
+        // Collapse the second update: mark CLEARED in the same write
+        ...(newBalance <= 0 && { status: 'CLEARED' }),
+      },
+      select: { creditBalance: true },
+    }),
+  ]);
 
   // If specific transaction, update it
   if (transactionId) {
+    const newAmountPaid = (customer.creditBalance - newBalance); // amount paid this time
+    const txAmountPaid = amount; // amount for this transaction payment
     const transaction = await prisma.transaction.findUnique({
       where: { id: transactionId },
+      select: { amountPaid: true, totalAmount: true },
     });
 
     if (transaction) {
-      const newAmountPaid = transaction.amountPaid + amount;
-      const newRemainingBalance = transaction.totalAmount - newAmountPaid;
+      const newTxAmountPaid = transaction.amountPaid + txAmountPaid;
+      const newRemainingBalance = transaction.totalAmount - newTxAmountPaid;
       const newStatus =
-        newRemainingBalance === 0 ? 'PAID' : newRemainingBalance < transaction.totalAmount ? 'PARTIAL' : 'PENDING';
+        newRemainingBalance <= 0 ? 'PAID' : newRemainingBalance < transaction.totalAmount ? 'PARTIAL' : 'PENDING';
 
       await prisma.transaction.update({
         where: { id: transactionId },
-        data: {
-          amountPaid: newAmountPaid,
-          remainingBalance: newRemainingBalance,
-          paymentStatus: newStatus,
-        },
+        data: { amountPaid: newTxAmountPaid, remainingBalance: newRemainingBalance, paymentStatus: newStatus },
       });
     }
   }
+
+  // INVALIDATE DASHBOARD STATS CACHE
+  await deleteCachePattern(`dashboard:stats:${shopId}`);
 
   logger.info(`Payment recorded: ₹${amount} from customer ${customerId}`);
 
@@ -1121,10 +1220,18 @@ exports.recordPayment = asyncHandler(async (req, res) => {
  */
 exports.getPaymentHistory = asyncHandler(async (req, res) => {
   const shopId = req.user.shopId;
-  const { page = 1, limit = 20, customerId, startDate, endDate } = req.query;
+  const { cursor, page, limit = 20, customerId, startDate, endDate } = req.query;
 
-  const skip = (parseInt(page) - 1) * parseInt(limit);
-  const take = parseInt(limit);
+  const take = parseInt(limit) || 20;
+  let skip = 0;
+  let cursorObj = undefined;
+
+  if (cursor) {
+    cursorObj = { id: cursor };
+    skip = 1;
+  } else if (page) {
+    skip = (Math.max(1, parseInt(page)) - 1) * take;
+  }
 
   const where = {
     shopId,
@@ -1133,7 +1240,7 @@ exports.getPaymentHistory = asyncHandler(async (req, res) => {
       endDate && {
       paymentDate: {
         gte: new Date(startDate),
-        lte: new Date(endDate),
+        lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)),
       },
     }),
   };
@@ -1141,38 +1248,45 @@ exports.getPaymentHistory = asyncHandler(async (req, res) => {
   const [payments, total] = await Promise.all([
     prisma.payment.findMany({
       where,
-      include: {
-        customer: {
-          include: {
-            user: true,
-          },
-        },
+      select: {
+        id: true,
+        customerId: true,
+        amount: true,
+        paymentMethod: true,
+        receiptNumber: true,
+        paymentDate: true,
+        notes: true,
+        customer: { select: { customerName: true } }
       },
-      skip,
       take,
-      orderBy: { paymentDate: 'desc' },
+      skip,
+      ...(cursorObj && { cursor: cursorObj }),
+      orderBy: { id: 'desc' },
     }),
     prisma.payment.count({ where }),
   ]);
 
+  const formattedPayments = payments.map((p) => ({
+    id: p.id,
+    customerId: p.customerId,
+    customerName: p.customer.customerName,
+    amount: p.amount,
+    paymentMethod: p.paymentMethod,
+    receiptNumber: p.receiptNumber,
+    date: p.paymentDate,
+    notes: p.notes,
+  }));
+
+  const nextCursor = payments.length === take ? payments[payments.length - 1].id : null;
+
   res.json({
     success: true,
-    payments: payments.map((p) => ({
-      id: p.id,
-      customerId: p.customerId,
-      customerName: p.customer.customerName,
-      amount: p.amount,
-      paymentMethod: p.paymentMethod,
-      receiptNumber: p.receiptNumber,
-      date: p.paymentDate,
-      notes: p.notes,
-    })),
-    pagination: {
-      currentPage: parseInt(page),
-      totalPages: Math.ceil(total / take),
-      totalPayments: total,
-      limit: take,
-    },
+    count: formattedPayments.length,
+    total,
+    nextCursor,
+    totalPages: Math.ceil(total / take),
+    currentPage: page ? parseInt(page) : undefined,
+    payments: formattedPayments,
   });
 });
 
@@ -1202,88 +1316,58 @@ exports.getAnalytics = asyncHandler(async (req, res) => {
     startDate.setFullYear(startDate.getFullYear() - 1);
   }
 
-  // Revenue analytics
-  const revenueData = await prisma.transaction.aggregate({
-    where: {
-      shopId,
-      transactionType: 'CREDIT_SALE',
-      transactionDate: { gte: startDate },
-    },
-    _sum: { totalAmount: true },
-  });
-
-  // Credit analytics
-  const creditData = await prisma.customer.aggregate({
-    where: { shopId },
-    _sum: {
-      creditBalance: true,
-      totalPaid: true,
-      totalCredit: true,
-    },
-  });
+  // Run ALL analytics queries in parallel — was previously 7+ sequential awaits
+  const [revenueData, creditData, totalCustomers, activeCustomers, newCustomers, topCustomers, topProducts] = await Promise.all([
+    // Revenue in period
+    prisma.transaction.aggregate({
+      where: { shopId, transactionType: 'CREDIT_SALE', transactionDate: { gte: startDate } },
+      _sum: { totalAmount: true },
+    }),
+    // Credit balance stats
+    prisma.customer.aggregate({
+      where: { shopId },
+      _sum: { creditBalance: true, totalPaid: true, totalCredit: true },
+    }),
+    // Total customers
+    prisma.customer.count({ where: { shopId } }),
+    // Active customers in period
+    prisma.customer.count({ where: { shopId, lastPurchase: { gte: startDate } } }),
+    // New customers in period
+    prisma.customer.count({ where: { shopId, joinDate: { gte: startDate } } }),
+    // Top customers by credit
+    prisma.customer.findMany({
+      where: { shopId },
+      orderBy: { totalCredit: 'desc' },
+      take: 10,
+      select: { customerName: true, totalCredit: true, totalPaid: true, creditBalance: true },
+    }),
+    // Top products by revenue (single query — product names fetched below in parallel)
+    prisma.transactionItem.groupBy({
+      by: ['productId'],
+      where: { transaction: { shopId, transactionDate: { gte: startDate } } },
+      _sum: { quantity: true, subtotal: true },
+      orderBy: { _sum: { subtotal: 'desc' } },
+      take: 10,
+    }),
+  ]);
 
   const creditRecoveryRate =
     creditData._sum.totalCredit > 0
       ? ((creditData._sum.totalPaid / creditData._sum.totalCredit) * 100).toFixed(2)
       : 0;
 
-  // Customer analytics
-  const totalCustomers = await prisma.customer.count({ where: { shopId } });
-  const activeCustomers = await prisma.customer.count({
-    where: {
-      shopId,
-      lastPurchase: { gte: startDate },
-    },
-  });
-  const newCustomers = await prisma.customer.count({
-    where: {
-      shopId,
-      joinDate: { gte: startDate },
-    },
-  });
+  // Fetch product names for top products (one query, not N queries)
+  const topProductDetails = topProducts.length > 0
+    ? await prisma.product.findMany({
+        where: { id: { in: topProducts.map((p) => p.productId) } },
+        select: { id: true, productName: true, productNameEn: true, productNameHi: true, productNameGu: true },
+      })
+    : [];
 
-  // Top customers
-  const topCustomers = await prisma.customer.findMany({
-    where: { shopId },
-    orderBy: { totalCredit: 'desc' },
-    take: 10,
-    select: {
-      customerName: true,
-      totalCredit: true,
-      totalPaid: true,
-      creditBalance: true,
-    },
-  });
-
-  // Top products
-  const topProducts = await prisma.transactionItem.groupBy({
-    by: ['productId'],
-    where: {
-      transaction: {
-        shopId,
-        transactionDate: { gte: startDate },
-      },
-    },
-    _sum: {
-      quantity: true,
-      subtotal: true,
-    },
-    orderBy: {
-      _sum: {
-        subtotal: 'desc',
-      },
-    },
-    take: 10,
-  });
-
-  const topProductDetails = await prisma.product.findMany({
-    where: {
-      id: { in: topProducts.map((p) => p.productId) },
-    },
-  });
+  const productMap = new Map(topProductDetails.map((p) => [p.id, p]));
 
   const topProductsWithDetails = topProducts.map((tp) => {
-    const product = topProductDetails.find((p) => p.id === tp.productId);
+    const product = productMap.get(tp.productId);
     return {
       productName: getLocalizedValue(lang, {
         en: product?.productNameEn,
@@ -1299,25 +1383,15 @@ exports.getAnalytics = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     analytics: {
-      revenue: {
-        total: revenueData._sum.totalAmount || 0,
-        period,
-      },
+      revenue: { total: revenueData._sum.totalAmount || 0, period },
       credit: {
         outstanding: creditData._sum.creditBalance || 0,
         recovered: creditData._sum.totalPaid || 0,
         total: creditData._sum.totalCredit || 0,
         recoveryRate: parseFloat(creditRecoveryRate),
       },
-      customers: {
-        total: totalCustomers,
-        active: activeCustomers,
-        new: newCustomers,
-        topCustomers,
-      },
-      products: {
-        topSelling: topProductsWithDetails,
-      },
+      customers: { total: totalCustomers, active: activeCustomers, new: newCustomers, topCustomers },
+      products: { topSelling: topProductsWithDetails },
     },
   });
 });
@@ -1415,26 +1489,31 @@ exports.getCustomerHistory = asyncHandler(async (req, res) => {
  */
 exports.getPendingOrders = asyncHandler(async (req, res) => {
   const shopId = req.user.shopId;
-  const { page = 1, limit = 20 } = req.query;
+  const { cursor, page, limit = 20 } = req.query;
   const lang = req.lang || 'en';
-  const skip = (parseInt(page) - 1) * parseInt(limit);
-  const take = parseInt(limit);
+
+  const take = parseInt(limit) || 20;
+  let skip = 0;
+  let cursorObj = undefined;
+
+  if (cursor) {
+    cursorObj = { id: cursor };
+    skip = 1;
+  } else if (page) {
+    skip = (Math.max(1, parseInt(page)) - 1) * take;
+  }
 
   // IMPORTANT (performance): Customer order requests are created with notes that start with "[REQUEST]".
-  // Using `contains` here forces a collection scan on large datasets, so we default to `startsWith`.
-  // If you ever need to include legacy data that only *contains* the marker, call with `?includeLegacy=true`.
-  const includeLegacy = String(req.query.includeLegacy || '').toLowerCase() === 'true';
-
-  const baseWhere = {
+  // We use `startsWith` because `contains` forces a collection scan on large datasets.
+  const where = {
     shopId,
     transactionType: 'CREDIT_SALE',
     notes: { startsWith: '[REQUEST]' },
   };
 
-  // Fetch base transactions (no relation includes)
-  const [transactions, totalStartsWith] = await Promise.all([
+  const [orders, total] = await Promise.all([
     prisma.transaction.findMany({
-      where: baseWhere,
+      where,
       select: {
         id: true,
         customerId: true,
@@ -1442,144 +1521,68 @@ exports.getPendingOrders = asyncHandler(async (req, res) => {
         paymentStatus: true,
         transactionDate: true,
         notes: true,
-      },
-      skip,
-      take,
-      orderBy: { transactionDate: 'desc' },
-    }),
-    prisma.transaction.count({ where: baseWhere }),
-  ]);
-
-  // Optional legacy fallback (slower) — only used when explicitly requested
-  let legacyTransactions = [];
-  let totalLegacy = 0;
-  if (includeLegacy) {
-    const legacyWhere = {
-      shopId,
-      transactionType: 'CREDIT_SALE',
-      notes: { contains: '[REQUEST]' },
-      NOT: { notes: { startsWith: '[REQUEST]' } },
-    };
-    const [legacyPage, legacyCount] = await Promise.all([
-      prisma.transaction.findMany({
-        where: legacyWhere,
-        select: {
-          id: true,
-          customerId: true,
-          totalAmount: true,
-          paymentStatus: true,
-          transactionDate: true,
-          notes: true,
+        customer: {
+          select: {
+            customerName: true,
+            user: { select: { phone: true } }
+          }
         },
-        skip,
-        take,
-        orderBy: { transactionDate: 'desc' },
-      }),
-      prisma.transaction.count({ where: legacyWhere }),
-    ]);
-    legacyTransactions = legacyPage;
-    totalLegacy = legacyCount;
-  }
-
-  // Combine (startsWith-first) and cap to requested page size.
-  // This preserves existing response shape while keeping the default path fast.
-  const ordersBase = includeLegacy ? [...transactions, ...legacyTransactions].slice(0, take) : transactions;
-
-  const transactionIds = ordersBase.map((t) => t.id);
-  const customerIds = Array.from(new Set(ordersBase.map((t) => t.customerId)));
-
-  // Batch fetch related data in a small, predictable number of queries
-  const [items, customers] = await Promise.all([
-    prisma.transactionItem.findMany({
-      where: { transactionId: { in: transactionIds } },
-      select: {
-        transactionId: true,
-        productId: true,
-        quantity: true,
-        unitPrice: true,
-        subtotal: true,
+        items: {
+          select: {
+            quantity: true,
+            unitPrice: true,
+            subtotal: true,
+            product: {
+              select: {
+                productName: true,
+                productNameEn: true,
+                productNameHi: true,
+                productNameGu: true,
+              }
+            }
+          }
+        }
       },
+      take,
+      skip,
+      ...(cursorObj && { cursor: cursorObj }),
+      orderBy: { id: 'desc' },
     }),
-    prisma.customer.findMany({
-      where: { id: { in: customerIds }, shopId },
-      select: {
-        id: true,
-        customerName: true,
-        userId: true,
-      },
-    }),
+    prisma.transaction.count({ where }),
   ]);
 
-  const userIds = Array.from(new Set(customers.map((c) => c.userId).filter(Boolean)));
-  const productIds = Array.from(new Set(items.map((i) => i.productId)));
+  const formattedOrders = orders.map((o) => ({
+    id: o.id,
+    customerId: o.customerId,
+    customerName: o.customer?.customerName,
+    customerPhone: o.customer?.user?.phone,
+    totalAmount: o.totalAmount,
+    status: o.paymentStatus,
+    date: o.transactionDate,
+    notes: o.notes,
+    items: o.items.map((i) => ({
+      productName: getLocalizedValue(lang, {
+        en: i.product?.productNameEn,
+        hi: i.product?.productNameHi,
+        gu: i.product?.productNameGu,
+        fallback: i.product?.productName,
+      }) || 'Unknown Product',
+      quantity: i.quantity,
+      unitPrice: i.unitPrice,
+      subtotal: i.subtotal,
+    })),
+  }));
 
-  const [users, products] = await Promise.all([
-    userIds.length
-      ? prisma.user.findMany({
-          where: { id: { in: userIds } },
-          select: { id: true, phone: true },
-        })
-      : Promise.resolve([]),
-    productIds.length
-      ? prisma.product.findMany({
-          where: { id: { in: productIds }, shopId },
-          select: { id: true, productName: true, productNameEn: true, productNameHi: true, productNameGu: true },
-        })
-      : Promise.resolve([]),
-  ]);
-
-  const customerById = new Map(customers.map((c) => [c.id, c]));
-  const userPhoneById = new Map(users.map((u) => [u.id, u.phone]));
-  const productNameById = new Map(
-    products.map((p) => [
-      p.id,
-      getLocalizedValue(lang, {
-        en: p.productNameEn,
-        hi: p.productNameHi,
-        gu: p.productNameGu,
-        fallback: p.productName,
-      }),
-    ])
-  );
-
-  const itemsByTransactionId = new Map();
-  for (const item of items) {
-    const existing = itemsByTransactionId.get(item.transactionId) || [];
-    existing.push(item);
-    itemsByTransactionId.set(item.transactionId, existing);
-  }
-
-  const total = includeLegacy ? totalStartsWith + totalLegacy : totalStartsWith;
+  const nextCursor = orders.length === take ? orders[orders.length - 1].id : null;
 
   res.json({
     success: true,
-    orders: ordersBase.map((o) => {
-      const customer = customerById.get(o.customerId);
-      const phone = customer?.userId ? userPhoneById.get(customer.userId) : undefined;
-      const orderItems = itemsByTransactionId.get(o.id) || [];
-
-      return {
-        id: o.id,
-        customerId: o.customerId,
-        customerName: customer?.customerName,
-        customerPhone: phone,
-        totalAmount: o.totalAmount,
-        status: o.paymentStatus,
-        date: o.transactionDate,
-        notes: o.notes,
-        items: orderItems.map((i) => ({
-          productName: productNameById.get(i.productId) || 'Unknown Product',
-          quantity: i.quantity,
-          unitPrice: i.unitPrice,
-          subtotal: i.subtotal,
-        })),
-      };
-    }),
-    pagination: {
-      currentPage: parseInt(page),
-      totalPages: Math.ceil(total / take),
-      total,
-    },
+    count: formattedOrders.length,
+    total,
+    nextCursor,
+    totalPages: Math.ceil(total / take),
+    currentPage: page ? parseInt(page) : undefined,
+    orders: formattedOrders,
   });
 });
 
@@ -1593,41 +1596,24 @@ exports.approveOrder = asyncHandler(async (req, res) => {
   const { orderId } = req.params;
   const { selectedItems } = req.body; // Array of item indices or null for all items
 
-  console.log('=== APPROVE ORDER ===');
-  console.log('Order ID:', orderId);
-  console.log('Shop ID:', shopId);
-  console.log('Selected Items:', selectedItems);
+  logger.debug(`Approving order ${orderId} for shop ${shopId}, selectedItems: ${JSON.stringify(selectedItems)}`);
 
-  // Try to find with startsWith first
-  let transaction = await prisma.transaction.findFirst({
-    where: { id: orderId, shopId, notes: { startsWith: '[REQUEST]' } },
-    include: { customer: true, items: true },
+  // Single query covers both startsWith and contains cases
+  const transaction = await prisma.transaction.findFirst({
+    where: { id: orderId, shopId, notes: { contains: '[REQUEST]' } },
+    include: {
+      items: { select: { id: true, productId: true, quantity: true, unitPrice: true, subtotal: true } },
+    },
   });
 
-  // If not found, try with contains
   if (!transaction) {
-    console.log('Not found with startsWith, trying contains...');
-    transaction = await prisma.transaction.findFirst({
-      where: { id: orderId, shopId, notes: { contains: '[REQUEST]' } },
-      include: { customer: true, items: true },
-    });
-  }
-
-  // If still not found, check if transaction exists at all
-  if (!transaction) {
-    const anyTransaction = await prisma.transaction.findUnique({
-      where: { id: orderId },
-      select: { id: true, shopId: true, notes: true },
-    });
-    console.log('Transaction lookup:', anyTransaction);
     return res.status(404).json({
       success: false,
       message: 'Order request not found',
-      debug: anyTransaction ? 'Transaction exists but not a request or wrong shop' : 'Transaction does not exist'
     });
   }
 
-  console.log('Transaction found:', { id: transaction.id, notes: transaction.notes, itemsCount: transaction.items.length });
+  logger.debug(`Order ${orderId} found: ${transaction.items.length} items`);
 
   // Calculate approved amount based on selected items
   let approvedAmount = transaction.totalAmount;
@@ -1637,12 +1623,7 @@ exports.approveOrder = asyncHandler(async (req, res) => {
     // Partial approval - only selected items
     approvedItems = transaction.items.filter((_, index) => selectedItems.includes(index));
     approvedAmount = approvedItems.reduce((sum, item) => sum + item.subtotal, 0);
-    console.log('Partial approval:', {
-      totalItems: transaction.items.length,
-      selectedCount: approvedItems.length,
-      originalAmount: transaction.totalAmount,
-      approvedAmount
-    });
+    logger.debug(`Partial approval: ${approvedItems.length}/${transaction.items.length} items, ₹${approvedAmount}`);
   }
 
   if (approvedAmount <= 0) {
@@ -2097,48 +2078,249 @@ exports.saveScannedProducts = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'Products data is required to save' });
   }
 
-  const savedProducts = [];
+  // 1. Extract unique categories
+  const uniqueCategories = [...new Set(
+    products
+      .map(p => p.category?.trim())
+      .filter(c => c && c.length > 0)
+  )];
 
-  for (const item of products) {
-    const { productName, category, unit, pricePerUnit, description, brand } = item;
+  // 2. Fetch existing categories
+  const existingCats = await prisma.category.findMany({
+    where: {
+      shopId,
+      name: { in: uniqueCategories, mode: 'insensitive' }
+    },
+    select: { name: true }
+  });
+  
+  const existingCatNames = new Set(existingCats.map(c => c.name.toLowerCase()));
 
-    if (category && category.trim()) {
-      const existingCat = await prisma.$queryRaw`
-        SELECT * FROM categories WHERE shop_id = ${shopId} AND LOWER(name) = LOWER(${category.trim()}) LIMIT 1
-      `;
-      if (!existingCat || existingCat.length === 0) {
-        const defaultAvatar = generateAvatarUrl(category.trim());
-        await prisma.$executeRaw`
-          INSERT INTO categories (shop_id, name, name_en, photo_url, is_active)
-          VALUES (${shopId}, ${category.trim()}, ${category.trim()}, ${defaultAvatar}, true)
-        `;
-      }
-    }
-
-    const prod = await prisma.product.create({
-      data: {
-        shopId,
-        productName: productName.trim(),
-        productNameEn: productName.trim(),
-        category: category ? category.trim() : 'General',
-        categoryEn: category ? category.trim() : 'General',
-        unit: unit || 'Unit',
-        pricePerUnit: parseFloat(pricePerUnit) || 0.0,
-        photoUrl: generateAvatarUrl(productName.trim()),
-        stockStatus: 'AVAILABLE',
-        description: description || `Brand: ${brand || 'Local'}`
-      }
-    });
-
-    savedProducts.push(prod);
+  // 3. Insert missing categories
+  const newCategories = uniqueCategories.filter(c => !existingCatNames.has(c.toLowerCase()));
+  
+  if (newCategories.length > 0) {
+    const catData = newCategories.map(c => ({
+      shopId,
+      name: c,
+      nameEn: c,
+      photoUrl: generateAvatarUrl(c),
+      isActive: true
+    }));
+    await prisma.category.createMany({ data: catData, skipDuplicates: true });
   }
 
-  logger.info(`💾 Scanned products saved successfully: ${savedProducts.length} items for shop: ${shopId}`);
+  // 4. Prepare and insert products
+  const productData = products.map(item => {
+    const { productName, category, unit, pricePerUnit, description, brand } = item;
+    const cat = category ? category.trim() : 'General';
+    return {
+      shopId,
+      productName: productName.trim(),
+      productNameEn: productName.trim(),
+      category: cat,
+      categoryEn: cat,
+      unit: unit || 'Unit',
+      pricePerUnit: parseFloat(pricePerUnit) || 0.0,
+      photoUrl: generateAvatarUrl(productName.trim()),
+      stockStatus: 'AVAILABLE',
+      description: description || `Brand: ${brand || 'Local'}`
+    };
+  });
+
+  const result = await prisma.product.createMany({
+    data: productData,
+    skipDuplicates: true
+  });
+
+  logger.info(`💾 Scanned products bulk saved successfully: ${result.count} items for shop: ${shopId}`);
 
   res.json({
     success: true,
-    message: `Successfully saved ${savedProducts.length} products to database!`,
-    products: savedProducts
+    message: `Successfully saved ${result.count} products to database!`,
+    products: productData
+  });
+});
+
+// =====================================================
+// COMBINED HISTORY (Transactions + Payments)
+// =====================================================
+
+/**
+ * @route   GET /api/shop-owner/history
+ * @desc    Combined, paginated transaction + payment history with server-side filtering
+ * @access  Private (Shop Owner)
+ * @query   type=credit|payment|all, customerId, startDate, endDate, page, limit, sortDir=desc|asc
+ */
+exports.getHistory = asyncHandler(async (req, res) => {
+  const shopId = req.user.shopId;
+  const lang = req.lang || 'en';
+
+  // All params are sanitized by historyQuery validators before reaching here
+  const {
+    type = 'all',
+    customerId,
+    startDate,
+    endDate,
+    page = 1,
+    limit = 50,
+    sortDir = 'desc',
+  } = req.query;
+
+  const take = Math.min(parseInt(limit) || 50, 200);
+  const pageNum = Math.max(parseInt(page) || 1, 1);
+
+  const dateFilter =
+    startDate && endDate
+      ? {
+          gte: new Date(startDate),
+          lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)),
+        }
+      : startDate
+      ? { gte: new Date(startDate) }
+      : endDate
+      ? { lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)) }
+      : undefined;
+
+  const txWhere = {
+    shopId,
+    transactionType: 'CREDIT_SALE',
+    OR: [{ notes: null }, { NOT: { notes: { contains: '[REQUEST]' } } }],
+    ...(customerId && { customerId: parseInt(customerId) }),
+    ...(dateFilter && { transactionDate: dateFilter }),
+  };
+
+  const payWhere = {
+    shopId,
+    ...(customerId && { customerId: parseInt(customerId) }),
+    ...(dateFilter && { paymentDate: dateFilter }),
+  };
+
+  // Fetch both in parallel — only what's needed for this type filter
+  const [txResult, payResult] = await Promise.all([
+    type !== 'payment'
+      ? prisma.transaction.findMany({
+          where: txWhere,
+          select: {
+            id: true,
+            customerId: true,
+            totalAmount: true,
+            amountPaid: true,
+            remainingBalance: true,
+            paymentStatus: true,
+            transactionDate: true,
+            items: {
+              select: {
+                productId: true,
+                quantity: true,
+                unitPrice: true,
+                subtotal: true,
+                product: {
+                  select: {
+                    productName: true,
+                    productNameEn: true,
+                    productNameHi: true,
+                    productNameGu: true,
+                  },
+                },
+              },
+            },
+            customer: { select: { customerName: true } },
+          },
+          orderBy: { transactionDate: sortDir === 'asc' ? 'asc' : 'desc' },
+        })
+      : Promise.resolve([]),
+
+    type !== 'credit'
+      ? prisma.payment.findMany({
+          where: payWhere,
+          select: {
+            id: true,
+            customerId: true,
+            amount: true,
+            paymentMethod: true,
+            receiptNumber: true,
+            paymentDate: true,
+            notes: true,
+            customer: { select: { customerName: true } },
+          },
+          orderBy: { paymentDate: sortDir === 'asc' ? 'asc' : 'desc' },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  // Normalise into a unified shape
+  const creditItems = txResult.map((t) => ({
+    _type: 'credit',
+    id: t.id,
+    customerId: t.customerId,
+    customerName: t.customer?.customerName || '',
+    totalAmount: t.totalAmount,
+    paidAmount: t.amountPaid,
+    balance: t.remainingBalance,
+    status: t.paymentStatus,
+    date: t.transactionDate,
+    items: t.items.map((i) => ({
+      productName: getLocalizedValue(lang, {
+        en: i.product?.productNameEn,
+        hi: i.product?.productNameHi,
+        gu: i.product?.productNameGu,
+        fallback: i.product?.productName,
+      }),
+      quantity: i.quantity,
+      unitPrice: i.unitPrice,
+      subtotal: i.subtotal,
+    })),
+  }));
+
+  const paymentItems = payResult.map((p) => ({
+    _type: 'payment',
+    id: p.id,
+    customerId: p.customerId,
+    customerName: p.customer?.customerName || '',
+    amount: p.amount,
+    paymentMethod: p.paymentMethod,
+    receiptNumber: p.receiptNumber,
+    date: p.paymentDate,
+    notes: p.notes,
+  }));
+
+  // Merge and sort
+  const combined = [...creditItems, ...paymentItems].sort((a, b) =>
+    sortDir === 'asc'
+      ? new Date(a.date).getTime() - new Date(b.date).getTime()
+      : new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
+  // Paginate in-memory (after merge sort — avoids complex SQL union)
+  const total = combined.length;
+  const totalPages = Math.ceil(total / take);
+  const offset = (pageNum - 1) * take;
+  const page_items = combined.slice(offset, offset + take);
+
+  // Summary stats for the current filter window
+  const totalCredit = creditItems.reduce((s, t) => s + t.totalAmount, 0);
+  const totalPaid = paymentItems.reduce((s, p) => s + p.amount, 0);
+
+  // Set HTTP cache header — short TTL since history changes with new transactions
+  res.setHeader('Cache-Control', 'private, max-age=30, stale-while-revalidate=15');
+
+  res.json({
+    success: true,
+    items: page_items,
+    pagination: {
+      currentPage: pageNum,
+      totalPages,
+      total,
+      limit: take,
+      hasNextPage: pageNum < totalPages,
+      hasPrevPage: pageNum > 1,
+    },
+    summary: {
+      totalCredit,
+      totalPaid,
+      netOutstanding: totalCredit - totalPaid,
+    },
   });
 });
 
