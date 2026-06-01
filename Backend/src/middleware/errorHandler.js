@@ -58,7 +58,7 @@ const errorHandler = (err, req, res, next) => {
   // Default error response
   const statusCode = err.statusCode || 500;
   const message =
-    process.env.NODE_ENV === 'production'
+    (process.env.NODE_ENV === 'production' && statusCode === 500)
       ? 'Internal server error'
       : err.message || 'Something went wrong';
 

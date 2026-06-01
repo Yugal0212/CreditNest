@@ -162,10 +162,11 @@ const sendOTP = async (identifierOrTargets, type, method = 'email') => {
 
       logger.warn('OTP delivery had partial or total failures.', logPayload);
       
-      // If all methods failed, we will log a warning but still allow the process to proceed
-      // so you can check the logs for the OTP and continue testing!
+      // If ALL methods failed, throw error to notify frontend so it doesn't fail silently
       if (successes === 0) {
-        logger.warn(`Failed to send OTP to ${failedMessages.join(', ')}. Please check the server logs for the OTP to continue.`);
+        const err = new Error(`Failed to send OTP to ${failedMessages.join(', ')}. Please check your email configuration (Render may be blocking SMTP ports).`);
+        err.statusCode = 502; // Bad Gateway
+        throw err;
       }
     }
 
