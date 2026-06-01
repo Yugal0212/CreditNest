@@ -1,36 +1,37 @@
-const nodemailer = require('nodemailer');
+const axios = require('axios');
 const logger = require('../utils/logger');
 const { APP_NAME } = require('../config/constants');
 
-// Create transporter
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: process.env.EMAIL_PORT,
-  secure: process.env.EMAIL_PORT === '465' || Number(process.env.EMAIL_PORT) === 465,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+// EmailJS Credentials
+const EMAILJS_URL = 'https://api.emailjs.com/api/v1.0/email/send';
+const SERVICE_ID = process.env.EMAILJS_SERVICE_ID;
+const TEMPLATE_ID = process.env.EMAILJS_TEMPLATE_ID;
+const PUBLIC_KEY = process.env.EMAILJS_PUBLIC_KEY;
+const PRIVATE_KEY = process.env.EMAILJS_PRIVATE_KEY;
 
 /**
- * Send email
+ * Send email using EmailJS REST API
  */
-const sendEmail = async (to, subject, text, html) => {
+const sendEmail = async (to, templateParams) => {
   try {
-    const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || `"${APP_NAME}" <noreply@creditnest.com>`,
-      to,
-      subject,
-      text,
-      html,
+    const response = await axios.post(EMAILJS_URL, {
+      service_id: SERVICE_ID,
+      template_id: TEMPLATE_ID,
+      user_id: PUBLIC_KEY,
+      accessToken: PRIVATE_KEY,
+      template_params: {
+        to_email: to,
+        app_name: APP_NAME,
+        ...templateParams,
+      },
     });
 
-    logger.info(`Email sent: ${info.messageId} to ${to}`);
-    return { success: true, messageId: info.messageId };
+    logger.info(`Email sent via EmailJS to ${to}`);
+    return { success: true, data: response.data };
   } catch (error) {
-    logger.error(`Email error to ${to}:`, error);
-    throw error;
+    const errorMsg = error.response?.data || error.message;
+    logger.error(`Email error to ${to}:`, errorMsg);
+    throw new Error(`Failed to send email via EmailJS: ${errorMsg}`);
   }
 };
 
@@ -38,7 +39,8 @@ const sendEmail = async (to, subject, text, html) => {
  * Send OTP email
  */
 const sendOTPEmail = async (email, otp, type = 'verification') => {
-  const subject = `${APP_NAME} - OTP Verification`;
+  const text = `Your ${APP_NAME} OTP is: ${otp}. Valid for 5 minutes. If you didn't request this, please ignore this email.`;
+  
   const html = `
     <!DOCTYPE html>
     <html>
@@ -57,7 +59,7 @@ const sendOTPEmail = async (email, otp, type = 'verification') => {
     <body>
       <div class="container">
         <div class="header">
-          <h1 style="margin: 0;">🏪 ${APP_NAME}</h1>
+          <img src="${process.env.FRONTEND_URL}/CreditNest.png" alt="${APP_NAME} Logo" style="max-height: 55px; filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.2));" />
         </div>
         <div class="content">
           <h2 style="color: #667eea;">OTP Verification</h2>
@@ -84,9 +86,13 @@ const sendOTPEmail = async (email, otp, type = 'verification') => {
     </html>
   `;
 
-  const text = `Your ${APP_NAME} OTP is: ${otp}. Valid for 5 minutes. If you didn't request this, please ignore this email.`;
-
-  return sendEmail(email, subject, text, html);
+  return sendEmail(email, {
+    otp: otp,
+    type: type,
+    message: text,
+    html_content: html,
+    subject: `${APP_NAME} - OTP Verification`,
+  });
 };
 
 /**
@@ -94,7 +100,8 @@ const sendOTPEmail = async (email, otp, type = 'verification') => {
  */
 const sendWelcomeEmail = async (email, name, shopName, phone) => {
   const loginUrl = process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/login` : '/login';
-  const subject = `Welcome to ${shopName} - ${APP_NAME}`;
+  const text = `You have been registered on ${APP_NAME} by ${shopName}. Login at ${loginUrl} using your mobile or email.`;
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -111,7 +118,7 @@ const sendWelcomeEmail = async (email, name, shopName, phone) => {
     <body>
       <div class="container">
         <div class="header">
-          <h1 style="margin: 0;">🎉 Welcome to ${shopName}!</h1>
+          <img src="${process.env.FRONTEND_URL}/CreditNest.png" alt="${APP_NAME} Logo" style="max-height: 55px; filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.2));" />
         </div>
         <div class="content">
           <p>Dear ${name},</p>
@@ -135,9 +142,13 @@ const sendWelcomeEmail = async (email, name, shopName, phone) => {
     </html>
   `;
 
-  const text = `You have been registered on ${APP_NAME} by ${shopName}. Login at ${loginUrl} using your mobile or email.`;
-
-  return sendEmail(email, subject, text, html);
+  return sendEmail(email, {
+    to_name: name,
+    shop_name: shopName,
+    message: text,
+    html_content: html,
+    subject: `Welcome to ${shopName} - ${APP_NAME}`,
+  });
 };
 
 module.exports = {
