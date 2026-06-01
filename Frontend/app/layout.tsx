@@ -23,7 +23,12 @@ export const metadata: Metadata = {
     template: '%s | CreditNest',
   },
   description: 'Modern credit management system for Indian Kirana stores, canteens, and small businesses. Track digital khata, send payment reminders, and grow your business.',
-  keywords: ['CreditNest', 'Credit Management', 'Kirana', 'Shop', 'India', 'Canteen', 'Khata Book', 'Digital Ledger', 'Credit Tracker'],
+  keywords: [
+    'CreditNest', 'Credit Nest', 'creditnest', 'CreditNest App', 'Credit Nest Login', 
+    'Smart Credit', 'Credit Management', 'Credit Management System',
+    'Kirana', 'Shop', 'Canteen', 'India', 'Khata Book', 'Bahi Khata', 'Udhar Book',
+    'Digital Ledger', 'Credit Tracker', 'Shop Credit App', 'Store Credit', 'Business Khata'
+  ],
   authors: [{ name: 'CreditNest Team' }],
   creator: 'CreditNest',
   publisher: 'CreditNest',
