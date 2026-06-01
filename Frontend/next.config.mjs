@@ -14,11 +14,16 @@ const withPWA = require('next-pwa')({
   runtimeCaching: [
     {
       urlPattern: /^https?:\/\/.*\/(api)\/.*/i,
-      handler: 'NetworkFirst',
+      handler: 'StaleWhileRevalidate',
       options: {
         cacheName: 'scms-api-cache',
         expiration: { maxEntries: 200, maxAgeSeconds: 86400 },
-        networkTimeoutSeconds: 10,
+        backgroundSync: {
+          name: 'scms-api-sync',
+          options: {
+            maxRetentionTime: 24 * 60 // Retry for up to 24 hours if offline
+          }
+        },
         cacheableResponse: { statuses: [0, 200] },
       },
     },

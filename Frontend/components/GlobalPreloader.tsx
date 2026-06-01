@@ -72,8 +72,8 @@ export function GlobalPreloader() {
                 src="/CreditNest.png"
                 alt="CreditNest Logo"
                 style={{
-                  width: '72px',
-                  height: '72px',
+                  width: '144px',
+                  height: '144px',
                   objectFit: 'contain',
                   position: 'relative',
                   zIndex: 1,

@@ -132,7 +132,7 @@ export default function AddProduct() {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-4 md:space-y-6 max-w-3xl mx-auto">
+    <div className="p-4 md:p-6 pb-32 md:pb-6 space-y-4 md:space-y-6 max-w-3xl mx-auto">
       <div
        
        

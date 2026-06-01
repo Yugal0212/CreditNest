@@ -245,43 +245,46 @@ exports.addCustomer = asyncHandler(async (req, res) => {
   const shopId = req.user.shopId;
   const { name, phone, email, address, workplace } = req.body;
 
-  if (!email || !email.trim()) {
+  if (!email?.trim() && !phone?.trim()) {
     return res.status(400).json({
       success: false,
-      message: 'Email is required for customer registration',
+      message: 'Either email or phone is required for customer registration',
     });
   }
 
-  // Normalize phone number
-  const normalizedPhone = normalizePhoneNumber(phone);
-
-  // Validate phone number
-  if (!isValidIndianPhone(normalizedPhone)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid Indian phone number. Please use a valid 10-digit number.',
-    });
+  // Normalize phone number if provided
+  let normalizedPhone = null;
+  if (phone?.trim()) {
+    normalizedPhone = normalizePhoneNumber(phone);
+    if (!isValidIndianPhone(normalizedPhone)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid Indian phone number. Please use a valid 10-digit number.',
+      });
+    }
   }
+
+  const normalizedEmail = email?.trim() ? email.toLowerCase().trim() : null;
 
   // Build query conditions for existing user check
-  const normalizedEmail = email.toLowerCase().trim();
-  const existingUserConditions = [
-    { phone: normalizedPhone },
-    { email: normalizedEmail },
-  ];
+  const existingUserConditions = [];
+  if (normalizedPhone) existingUserConditions.push({ phone: normalizedPhone });
+  if (normalizedEmail) existingUserConditions.push({ email: normalizedEmail });
 
   // Check if user already exists with normalized phone or email
-  const existingUser = await prisma.user.findFirst({
-    where: {
-      OR: existingUserConditions,
-    },
-  });
-
-  if (existingUser) {
-    return res.status(400).json({
-      success: false,
-      message: 'Phone number or email already registered',
+  if (existingUserConditions.length > 0) {
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: existingUserConditions,
+      },
     });
+
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number or email already registered',
+      });
+    }
   }
 
   let photoUrl = null;
@@ -301,7 +304,7 @@ exports.addCustomer = asyncHandler(async (req, res) => {
     photoUrl = generateAvatarUrl(name);
   }
 
-  // Create user with normalized phone
+  // Create user
   const user = await prisma.user.create({
     data: {
       email: normalizedEmail,
@@ -316,22 +319,25 @@ exports.addCustomer = asyncHandler(async (req, res) => {
       userId: user.id,
       shopId,
       customerName: name,
-      address,
-      workplace,
+      address: address || null,
+      workplace: workplace || null,
       photoUrl,
     },
   });
 
-  // Send welcome email and SMS
-  try {
-    const shop = await prisma.shop.findUnique({ where: { id: shopId } });
-    await sendWelcomeEmail(normalizedEmail, name, shop.shopName, normalizedPhone);
-    await sendWelcomeSMS(normalizedPhone, name, shop.shopName);
-  } catch (error) {
-    logger.error('Failed to send welcome message:', error);
-  }
+  // Send welcome email and SMS in the background (DO NOT AWAIT)
+  prisma.shop.findUnique({ where: { id: shopId } }).then((shop) => {
+    if (shop) {
+      if (normalizedEmail) {
+        sendWelcomeEmail(normalizedEmail, name, shop.shopName, normalizedPhone || 'N/A').catch(err => logger.error('Failed to send welcome email:', err));
+      }
+      if (normalizedPhone) {
+        sendWelcomeSMS(normalizedPhone, name, shop.shopName).catch(err => logger.error('Failed to send welcome SMS:', err));
+      }
+    }
+  }).catch(err => logger.error('Error fetching shop for notifications:', err));
 
-  logger.info(`Customer added: ${name} (${normalizedPhone}) by shop ${shopId}`);
+  logger.info(`Customer added: ${name} (${normalizedPhone || normalizedEmail}) by shop ${shopId}`);
 
   res.status(201).json({
     success: true,

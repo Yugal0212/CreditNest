@@ -17,6 +17,7 @@ export default function AddCustomer() {
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   
   const [formData, setFormData] = useState({
     name: '',
@@ -35,8 +36,10 @@ export default function AddCustomer() {
       const digitsOnly = value.replace(/\D/g, '');
       const formatted = digitsOnly.slice(0, 10);
       setFormData(prev => ({ ...prev, [name]: formatted }));
+      if (formErrors[name]) setFormErrors(prev => ({ ...prev, [name]: '' }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
+      if (formErrors[name]) setFormErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
@@ -76,32 +79,36 @@ export default function AddCustomer() {
     setLoading(true);
 
     try {
-      // Validate phone number
-      if (formData.phone.length !== 10) {
-        toast({
-          title: 'Validation Error',
-          description: 'Phone number must be exactly 10 digits',
-          variant: 'destructive',
-        });
-        setLoading(false);
-        return;
+      setFormErrors({});
+      const errors: Record<string, string> = {};
+
+      if (!formData.name.trim()) errors.name = 'Name is required';
+      
+      const phoneStr = formData.phone.trim();
+      const emailStr = formData.email.trim();
+
+      if (!phoneStr && !emailStr) {
+        errors.phone = 'Either phone or email is required';
+        errors.email = 'Either phone or email is required';
+      } else {
+        if (phoneStr && phoneStr.length !== 10) {
+          errors.phone = 'Phone number must be exactly 10 digits';
+        }
+        if (emailStr && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailStr)) {
+          errors.email = 'Please enter a valid email address';
+        }
       }
 
-      // Validate email
-      if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-        toast({
-          title: 'Validation Error',
-          description: 'Please enter a valid email address',
-          variant: 'destructive',
-        });
+      if (Object.keys(errors).length > 0) {
+        setFormErrors(errors);
         setLoading(false);
         return;
       }
 
       const data = new FormData();
       data.append('name', formData.name);
-      data.append('phone', formData.phone);
-      data.append('email', formData.email);
+      if (formData.phone.trim()) data.append('phone', formData.phone);
+      if (formData.email.trim()) data.append('email', formData.email);
       if (formData.address) data.append('address', formData.address);
       if (formData.workplace) data.append('workplace', formData.workplace);
       if (formData.photo) data.append('photo', formData.photo);
@@ -121,12 +128,29 @@ export default function AddCustomer() {
       router.push('/dashboard/shop_owner/customers');
     } catch (error: any) {
       console.error('Add customer error:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to add customer';
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      
+      // Handle express-validator validation errors array from backend
+      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        const apiErrors: Record<string, string> = {};
+        error.response.data.errors.forEach((err: any) => {
+          if (err.path || err.param) {
+            apiErrors[err.path || err.param] = err.msg;
+          }
+        });
+        setFormErrors(apiErrors);
+        toast({
+          title: 'Validation Error',
+          description: 'Please check the form for errors.',
+          variant: 'destructive',
+        });
+      } else {
+        const errorMessage = error.response?.data?.message || 'Failed to add customer';
+        toast({
+          title: 'Error',
+          description: errorMessage,
+          variant: 'destructive',
+        });
+      }
     } finally {
       setLoading(false);
       setUploadProgress(0); // Reset progress bar
@@ -134,7 +158,7 @@ export default function AddCustomer() {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-4 md:space-y-6 max-w-3xl mx-auto">
+    <div className="p-4 md:p-6 pb-32 md:pb-6 space-y-4 md:space-y-6 max-w-3xl mx-auto">
       <div
        
        
@@ -212,15 +236,16 @@ export default function AddCustomer() {
               onChange={handleInputChange}
               placeholder="Enter customer name"
               required
-              className="bg-card text-card-foreground border border-border shadow-sm"
+              className={`bg-card text-card-foreground shadow-sm ${formErrors.name ? 'border-red-500 focus-visible:ring-red-500' : 'border-border'}`}
             />
+            {formErrors.name && <p className="text-sm text-red-500 font-medium">{formErrors.name}</p>}
           </div>
 
           {/* Phone */}
           <div className="space-y-2">
             <Label htmlFor="phone" className="flex items-center gap-2 font-bold text-foreground">
               <Phone className="w-4 h-4" />
-              Phone Number *
+              Phone Number
             </Label>
             <Input
               id="phone"
@@ -228,21 +253,22 @@ export default function AddCustomer() {
               value={formData.phone}
               onChange={handleInputChange}
               placeholder="Enter 10-digit phone number"
-              required
-              minLength={10}
               maxLength={10}
-              className="bg-card text-card-foreground border border-border shadow-sm"
+              className={`bg-card text-card-foreground shadow-sm ${formErrors.phone ? 'border-red-500 focus-visible:ring-red-500' : 'border-border'}`}
             />
-            <p className="text-xs text-muted-foreground">
-              {formData.phone.length}/10 digits • Auto-formatted
-            </p>
+            <div className="flex justify-between items-center">
+              <p className="text-xs text-muted-foreground">
+                {formData.phone.length}/10 digits • Auto-formatted
+              </p>
+              {formErrors.phone && <p className="text-sm text-red-500 font-medium">{formErrors.phone}</p>}
+            </div>
           </div>
 
           {/* Email */}
           <div className="space-y-2">
             <Label htmlFor="email" className="flex items-center gap-2 font-bold text-foreground">
               <Mail className="w-4 h-4" />
-              Email Address *
+              Email Address
             </Label>
             <Input
               id="email"
@@ -251,9 +277,9 @@ export default function AddCustomer() {
               value={formData.email}
               onChange={handleInputChange}
               placeholder="Enter email address"
-              required
-              className="bg-card text-card-foreground border border-border shadow-sm"
+              className={`bg-card text-card-foreground shadow-sm ${formErrors.email ? 'border-red-500 focus-visible:ring-red-500' : 'border-border'}`}
             />
+            {formErrors.email && <p className="text-sm text-red-500 font-medium">{formErrors.email}</p>}
           </div>
 
           {/* Address */}

@@ -6,6 +6,8 @@ const { upload, handleMulterError } = require('../middleware/upload.middleware')
 const { customerValidation, productValidation, transactionValidation, validate } = require('../utils/validators');
 const { ROLES } = require('../config/constants');
 
+const { cacheMiddleware } = require('../middleware/cache.middleware');
+
 // All routes require shop owner authentication
 router.use(authenticate);
 router.use(authorize(ROLES.SHOP_OWNER));
@@ -13,7 +15,8 @@ router.use(authorize(ROLES.SHOP_OWNER));
 // =====================================================
 // DASHBOARD
 // =====================================================
-router.get('/dashboard/stats', shopOwnerController.getDashboardStats);
+// Cache stats for 60 seconds to improve rendering time and reduce DB load
+router.get('/dashboard/stats', cacheMiddleware(60), shopOwnerController.getDashboardStats);
 
 // =====================================================
 // CUSTOMER MANAGEMENT
@@ -121,7 +124,8 @@ router.get('/payments', shopOwnerController.getPaymentHistory);
 // =====================================================
 // ANALYTICS
 // =====================================================
-router.get('/analytics', shopOwnerController.getAnalytics);
+// Cache analytics for 5 minutes (300 seconds) since they are heavy and don't need realtime precision
+router.get('/analytics', cacheMiddleware(300), shopOwnerController.getAnalytics);
 
 // =====================================================
 // ORDER REQUESTS (from customers)

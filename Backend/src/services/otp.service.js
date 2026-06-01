@@ -164,7 +164,7 @@ const sendOTP = async (identifierOrTargets, type, method = 'email') => {
       
       // If ALL methods failed, throw error to notify frontend so it doesn't fail silently
       if (successes === 0) {
-        const err = new Error(`Failed to send OTP to ${failedMessages.join(', ')}. Please check your email configuration (Render may be blocking SMTP ports).`);
+        const err = new Error(`Failed to send OTP. Reason: ${failedMessages.join(', ')}`);
         err.statusCode = 502; // Bad Gateway
         throw err;
       }

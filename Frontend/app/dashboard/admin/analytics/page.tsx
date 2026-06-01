@@ -6,7 +6,15 @@ import { adminAPI } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { Zap, TrendingUp, BarChart as BarChartIcon, Users, Store, ArrowUpRight, DollarSign } from 'lucide-react';
 import { AdminAnalyticsSkeleton } from '@/components/skeletons/AdminSkeletons';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import dynamic from 'next/dynamic';
+
+const BarChart: any = dynamic(() => import('recharts').then((mod) => mod.BarChart as any), { ssr: false });
+const Bar: any = dynamic(() => import('recharts').then((mod) => mod.Bar as any), { ssr: false });
+const XAxis: any = dynamic(() => import('recharts').then((mod) => mod.XAxis as any), { ssr: false });
+const YAxis: any = dynamic(() => import('recharts').then((mod) => mod.YAxis as any), { ssr: false });
+const Tooltip: any = dynamic(() => import('recharts').then((mod) => mod.Tooltip as any), { ssr: false });
+const ResponsiveContainer: any = dynamic(() => import('recharts').then((mod) => mod.ResponsiveContainer as any), { ssr: false });
+const Cell: any = dynamic(() => import('recharts').then((mod) => mod.Cell as any), { ssr: false });
 
 import { useState, useEffect } from 'react';
 
@@ -142,7 +150,7 @@ export default function AdminAnalyticsPage() {
                        <ResponsiveContainer width="100%" height="100%">
                          <BarChart data={data.topShops} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                            <XAxis dataKey="shopName" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                           <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(val) => `₹${val}`} />
+                           <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(val: number | string) => `₹${val}`} />
                            <Tooltip
                              cursor={{ fill: 'rgba(99, 102, 241, 0.1)' }}
                              contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}

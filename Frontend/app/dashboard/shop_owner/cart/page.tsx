@@ -109,7 +109,7 @@ export default function ShopOwnerCart() {
       localStorage.removeItem(getCartKey());
       
       // Redirect to selected customer's history so the new credit is visible immediately
-      setTimeout(() => router.push(`/dashboard/shop_owner/customers/${targetCustomerId}/history?refresh=${Date.now()}`), 1200);
+      router.push(`/dashboard/shop_owner/customers/${targetCustomerId}/history?refresh=${Date.now()}`);
     } catch (error: any) {
       toast({ 
         title: t('common.error', 'Error'), 

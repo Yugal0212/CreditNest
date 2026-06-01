@@ -326,6 +326,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         title: 'Logged Out',
         description: 'You have been logged out successfully',
       });
+      window.location.href = '/login';
     }
   };
 

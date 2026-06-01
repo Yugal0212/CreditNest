@@ -131,8 +131,9 @@ export default function VerifyOTPPage() {
         router.push('/dashboard/customer');
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid OTP. Please try again.');
-      lastSubmittedRef.current = '';
+      setError(err.message || 'Invalid OTP. Please try again.');
+      setOtp(['', '', '', '', '', '']); // Clear input on error to prevent infinite submit loop
+      inputRefs.current[0]?.focus();
     } finally {
       setIsLoading(false);
     }

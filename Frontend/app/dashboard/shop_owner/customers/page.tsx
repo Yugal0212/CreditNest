@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 
 import useSWR from 'swr';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { shopOwnerAPI } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
@@ -252,107 +252,105 @@ export default function ShopOwnerCustomers() {
             </div>
           ) : (
             <div className="space-y-2">
-              
-                {customers.map((customer, i) => (
-                  <div key={customer.id}
-                   
-                    className="glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all hover:border-indigo-500/20 dark:border-indigo-400/20 transition-all group p-4">
-                    <div className="flex items-center gap-3">
-                      {/* Avatar */}
-                      <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${gradients[i % gradients.length]} flex items-center justify-center text-white text-base font-black shadow-lg flex-shrink-0 overflow-hidden`}>
-                        {customer.avatar ? (
-                          <img src={customer.avatar} alt={customer.name} className="w-full h-full object-cover" />
-                        ) : (
-                          customer.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-                        )}
-                      </div>
-
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-black text-base sm:text-lg text-foreground">{customer.name}</p>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border capitalize ${statusColors[customer.status]}`}>
-                            {customer.status === 'ACTIVE' ? t('customers_page.status_active') : customer.status === 'OVERDUE' ? t('customers_page.status_overdue') : t('customers_page.status_cleared')}
-                          </span>
-                          {customer.status === 'OVERDUE' && (
-                            <AlertCircle className="w-3.5 h-3.5 text-red-500" />
-                          )}
-                        </div>
-                        <p className="text-xs sm:text-sm font-bold text-muted-foreground flex items-center gap-1 mt-0.5">
-                          <Phone className="w-3 h-3" />{customer.phone}
-                        </p>
-                        <p className="text-xs sm:text-sm font-bold text-muted-foreground mt-0.5">{t('history.last_label', 'Last')}: {fmtDate(customer.lastPurchase)}</p>
-                      </div>
-
-                      {/* Balance */}
-                      <div className="flex-shrink-0 text-right mr-1 hidden sm:block">
-                        <p className={`text-base font-black ${customer.creditBalance > 0 ? 'text-red-500' : 'text-primary dark:text-indigo-400'}`}>
-                          ₹{customer.creditBalance.toLocaleString()}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">{t('customers_page.balance')}</p>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="flex items-center justify-end gap-1.5 flex-wrap sm:flex-nowrap mt-3 sm:mt-0">
-                        {/* View History */}
-                        <button
-                          onClick={() => router.push(`/dashboard/shop_owner/customers/${customer.id}`)}
-                          title={t('customer_detail_page.view_details_tooltip', 'View Customer Details')}
-                          className="w-8 h-8 rounded-xl bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors hover:bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors text-primary dark:text-indigo-400 flex items-center justify-center transition-colors"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-
-                        {/* Add Credit */}
-                        <button
-                          onClick={() => openAddCredit(customer)}
-                          title={t('add_credit_page.add_credit')}
-                          className="w-8 h-8 rounded-xl bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors hover:bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors text-primary dark:text-indigo-400 flex items-center justify-center transition-colors"
-                        >
-                          <IndianRupee className="w-3.5 h-3.5" />
-                        </button>
-
-                        {/* Record Payment - only if has balance */}
-                        {customer.creditBalance > 0 && (
-                          <button
-                            onClick={() => { setSelectedCustomer(customer); setShowPaymentModal(true); }}
-                            title={t('customers_page.record_payment')}
-                            className="w-8 h-8 rounded-xl bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors hover:bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors text-primary dark:text-indigo-400 flex items-center justify-center transition-colors"
-                          >
-                            <CreditCard className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-
-                        {/* Edit */}
-                        <button
-                          onClick={() => openEditModal(customer)}
-                          title={t('categories_page.edit_tooltip')}
-                          className="w-8 h-8 rounded-xl bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors hover:bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors text-primary dark:text-indigo-400 flex items-center justify-center transition-colors"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-
-                        {/* Delete */}
-                        <button
-                          onClick={() => setDeleteConfirmId(customer.id)}
-                          title={t('categories_page.delete_tooltip')}
-                          className="w-8 h-8 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 flex items-center justify-center transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+              {useMemo(() => customers.map((customer, i) => (
+                <div key={customer.id}
+                 
+                  className="glass-card bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all hover:border-indigo-500/20 dark:border-indigo-400/20 transition-all group p-4">
+                  <div className="flex items-center gap-3">
+                    {/* Avatar */}
+                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${gradients[i % gradients.length]} flex items-center justify-center text-white text-base font-black shadow-lg flex-shrink-0 overflow-hidden`}>
+                      {customer.avatar ? (
+                        <img src={customer.avatar} alt={customer.name} className="w-full h-full object-cover" />
+                      ) : (
+                        customer.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                      )}
                     </div>
 
-                    {/* Mobile balance row */}
-                    <div className="sm:hidden mt-3 pt-3 border-t border-border/40 flex items-center justify-between">
-                      <p className="text-sm font-bold text-muted-foreground">{t('customers_page.outstanding_balance')}</p>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-black text-base sm:text-lg text-foreground">{customer.name}</p>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border capitalize ${statusColors[customer.status]}`}>
+                          {customer.status === 'ACTIVE' ? t('customers_page.status_active') : customer.status === 'OVERDUE' ? t('customers_page.status_overdue') : t('customers_page.status_cleared')}
+                        </span>
+                        {customer.status === 'OVERDUE' && (
+                          <AlertCircle className="w-3.5 h-3.5 text-red-500" />
+                        )}
+                      </div>
+                      <p className="text-xs sm:text-sm font-bold text-muted-foreground flex items-center gap-1 mt-0.5">
+                        <Phone className="w-3 h-3" />{customer.phone}
+                      </p>
+                      <p className="text-xs sm:text-sm font-bold text-muted-foreground mt-0.5">{t('history.last_label', 'Last')}: {fmtDate(customer.lastPurchase)}</p>
+                    </div>
+
+                    {/* Balance */}
+                    <div className="flex-shrink-0 text-right mr-1 hidden sm:block">
                       <p className={`text-base font-black ${customer.creditBalance > 0 ? 'text-red-500' : 'text-primary dark:text-indigo-400'}`}>
                         ₹{customer.creditBalance.toLocaleString()}
                       </p>
+                      <p className="text-[10px] text-muted-foreground">{t('customers_page.balance')}</p>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center justify-end gap-1.5 flex-wrap sm:flex-nowrap mt-3 sm:mt-0">
+                      {/* View History */}
+                      <button
+                        onClick={() => router.push(`/dashboard/shop_owner/customers/${customer.id}`)}
+                        title={t('customer_detail_page.view_details_tooltip', 'View Customer Details')}
+                        className="w-8 h-8 rounded-xl bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors hover:bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors text-primary dark:text-indigo-400 flex items-center justify-center transition-colors"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Add Credit */}
+                      <button
+                        onClick={() => openAddCredit(customer)}
+                        title={t('add_credit_page.add_credit')}
+                        className="w-8 h-8 rounded-xl bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors hover:bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors text-primary dark:text-indigo-400 flex items-center justify-center transition-colors"
+                      >
+                        <IndianRupee className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Record Payment - only if has balance */}
+                      {customer.creditBalance > 0 && (
+                        <button
+                          onClick={() => { setSelectedCustomer(customer); setShowPaymentModal(true); }}
+                          title={t('customers_page.record_payment')}
+                          className="w-8 h-8 rounded-xl bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors hover:bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors text-primary dark:text-indigo-400 flex items-center justify-center transition-colors"
+                        >
+                          <CreditCard className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      {/* Edit */}
+                      <button
+                        onClick={() => openEditModal(customer)}
+                        title={t('categories_page.edit_tooltip')}
+                        className="w-8 h-8 rounded-xl bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors hover:bg-indigo-500/20 dark:bg-indigo-400/20 transition-colors text-primary dark:text-indigo-400 flex items-center justify-center transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Delete */}
+                      <button
+                        onClick={() => setDeleteConfirmId(customer.id)}
+                        title={t('categories_page.delete_tooltip')}
+                        className="w-8 h-8 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 flex items-center justify-center transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
-                ))}
-              
+
+                  {/* Mobile balance row */}
+                  <div className="sm:hidden mt-3 pt-3 border-t border-border/40 flex items-center justify-between">
+                    <p className="text-sm font-bold text-muted-foreground">{t('customers_page.outstanding_balance')}</p>
+                    <p className={`text-base font-black ${customer.creditBalance > 0 ? 'text-red-500' : 'text-primary dark:text-indigo-400'}`}>
+                      ₹{customer.creditBalance.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              )), [customers, t, router])}
             </div>
           )}
 

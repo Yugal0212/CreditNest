@@ -46,16 +46,21 @@ const authValidation = {
 const customerValidation = {
   create: [
     body('name').trim().isLength({ min: 2, max: 100 }).withMessage('Name must be 2-100 characters'),
-    body('phone').trim().notEmpty().withMessage('Phone number is required')
-      .isLength({ min: 10, max: 13 }).withMessage('Phone number must be 10-13 digits'),
-    body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('phone').optional({ checkFalsy: true }).trim().isLength({ min: 10, max: 13 }).withMessage('Phone number must be 10-13 digits'),
+    body('email').optional({ checkFalsy: true }).isEmail().normalizeEmail().withMessage('Valid email is required'),
     body('address').optional().trim(),
     body('workplace').optional().trim(),
+    body().custom((value, { req }) => {
+      if (!req.body.phone && !req.body.email) {
+        throw new Error('Either phone number or email must be provided');
+      }
+      return true;
+    }),
   ],
 
   update: [
     body('name').optional().trim().isLength({ min: 2, max: 100 }),
-    body('phone').optional().trim().isLength({ min: 10, max: 13 }).withMessage('Phone number must be 10-13 digits'),
+    body('phone').optional({ checkFalsy: true }).trim().isLength({ min: 10, max: 13 }).withMessage('Phone number must be 10-13 digits'),
     body('email').optional({ checkFalsy: true }).isEmail().normalizeEmail().withMessage('Valid email is required if provided'),
     body('address').optional().trim(),
     body('workplace').optional().trim(),
