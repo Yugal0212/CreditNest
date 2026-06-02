@@ -9,6 +9,7 @@ const { ROLES, FILE_UPLOAD, PAGINATION } = require('../config/constants');
 const { normalizePhoneNumber, isValidIndianPhone } = require('../utils/phoneValidation');
 const { getLocalizedValue } = require('../utils/localization');
 const { getCache, setCache, deleteCachePattern } = require('../config/redis');
+const Tesseract = require('tesseract.js');
 
 // =====================================================
 // DASHBOARD
@@ -673,11 +674,13 @@ exports.addProduct = asyncHandler(async (req, res) => {
     pricePerUnit,
     stockStatus,
     description,
+    stockQuantity,
   } = req.body;
 
   const lang = req.lang || 'en';
   const normalizedProductName = productName?.trim();
   const normalizedCategory = category?.trim();
+  const quantityToAdd = parseInt(stockQuantity) || 0;
 
   let photoUrl = null;
 
@@ -695,26 +698,50 @@ exports.addProduct = asyncHandler(async (req, res) => {
     photoUrl = generateAvatarUrl(productName);
   }
 
-  const product = await prisma.product.create({
-    data: {
+  // Check if product already exists
+  let product = await prisma.product.findFirst({
+    where: {
       shopId,
-      productName: normalizedProductName,
-      productNameEn: productNameEn?.trim() || normalizedProductName,
-      productNameHi: productNameHi?.trim() || null,
-      productNameGu: productNameGu?.trim() || null,
-      category: normalizedCategory,
-      categoryEn: categoryEn?.trim() || normalizedCategory || null,
-      categoryHi: categoryHi?.trim() || null,
-      categoryGu: categoryGu?.trim() || null,
-      unit,
-      pricePerUnit: parseFloat(pricePerUnit),
-      photoUrl,
-      stockStatus: stockStatus || 'AVAILABLE',
-      description,
-    },
+      productName: normalizedProductName
+    }
   });
 
-  logger.info(`Product added: ${productName} by shop ${shopId}`);
+  if (product) {
+    // Product exists, update quantity and price
+    product = await prisma.product.update({
+      where: { id: product.id },
+      data: {
+        stockQuantity: { increment: quantityToAdd },
+        pricePerUnit: pricePerUnit ? parseFloat(pricePerUnit) : undefined,
+        stockStatus: stockStatus || undefined,
+        description: description || undefined,
+        ...(photoUrl && { photoUrl }), // Update photo if provided
+      }
+    });
+    logger.info(`Product updated (quantity added): ${productName} by shop ${shopId}`);
+  } else {
+    // Product does not exist, create it
+    product = await prisma.product.create({
+      data: {
+        shopId,
+        productName: normalizedProductName,
+        productNameEn: productNameEn?.trim() || normalizedProductName,
+        productNameHi: productNameHi?.trim() || null,
+        productNameGu: productNameGu?.trim() || null,
+        category: normalizedCategory,
+        categoryEn: categoryEn?.trim() || normalizedCategory || null,
+        categoryHi: categoryHi?.trim() || null,
+        categoryGu: categoryGu?.trim() || null,
+        unit,
+        pricePerUnit: parseFloat(pricePerUnit),
+        photoUrl,
+        stockQuantity: quantityToAdd,
+        stockStatus: stockStatus || 'AVAILABLE',
+        description,
+      },
+    });
+    logger.info(`Product added: ${productName} by shop ${shopId}`);
+  }
 
   res.status(201).json({
     success: true,
@@ -736,6 +763,7 @@ exports.addProduct = asyncHandler(async (req, res) => {
       unit: product.unit,
       pricePerUnit: product.pricePerUnit,
       photoUrl: product.photoUrl,
+      stockQuantity: product.stockQuantity,
       stockStatus: product.stockStatus,
       description: product.description,
     },
@@ -2009,57 +2037,62 @@ exports.scanBill = asyncHandler(async (req, res) => {
 
   // Determine standard file path/URL
   const fileUrl = `/uploads/bills/${req.file.filename}`;
-
-  // Intelligent regex / format OCR text generator:
-  const filenameLower = req.file.originalname.toLowerCase();
   
   let products = [];
   let rawText = '';
 
-  if (filenameLower.includes('grocer') || filenameLower.includes('kirana') || filenameLower.includes('bill') || filenameLower.includes('invoice')) {
-    rawText = `
-      KIRANA RETAILERS PVT LTD
-      INVOICE NO: INV-2026-987
-      DATE: 19-MAY-2026
-      ---------------------------------
-      1. Fortune Mustard Oil 1L | 5 Qty | INR 175.00 | GST 5%
-      2. Tata Salt Lite 1kg | 10 Qty | INR 28.00 | GST 0%
-      3. Britannia Marie Gold | 15 Qty | INR 30.00 | GST 18%
-      4. Maggi 2 Min Noodles | 20 Qty | INR 14.00 | GST 18%
-      5. Aashirvaad Atta 5kg | 8 Qty | INR 260.00 | GST 0%
-      ---------------------------------
-      TOTAL AMOUNT: INR 8185.00
-      THANK YOU FOR YOUR BUSINESS!
-    `;
-    products = [
-      { productName: 'Fortune Mustard Oil 1L', category: 'Grocery', unit: 'Bottle', pricePerUnit: 165.00, mrp: 175.00, quantity: 5, discount: 10.00, brand: 'Fortune', gst: '5%', sku: 'FOR-MUST-1L' },
-      { productName: 'Tata Salt Lite 1kg', category: 'Grocery', unit: 'Packet', pricePerUnit: 26.00, mrp: 28.00, quantity: 10, discount: 2.00, brand: 'Tata', gst: '0%', sku: 'TAT-SALT-1K' },
-      { productName: 'Britannia Marie Gold Biscuit', category: 'Snacks', unit: 'Packet', pricePerUnit: 28.00, mrp: 30.00, quantity: 15, discount: 2.00, brand: 'Britannia', gst: '18%', sku: 'BRI-MARI-GLD' },
-      { productName: 'Maggi 2-Min Masala Noodles', category: 'Snacks', unit: 'Packet', pricePerUnit: 13.00, mrp: 14.00, quantity: 20, discount: 1.00, brand: 'Nestle', gst: '18%', sku: 'MAG-2MIN-MAS' },
-      { productName: 'Aashirvaad Shudh Chakki Atta 5kg', category: 'Grocery', unit: 'Bag', pricePerUnit: 245.00, mrp: 260.00, quantity: 8, discount: 15.00, brand: 'ITC', gst: '0%', sku: 'AAS-ATTA-5K' }
-    ];
-  } else {
-    rawText = `
-      RETAIL BILL SCANNER
-      DATE: ${new Date().toLocaleDateString()}
-      ---------------------------------
-      Items parsed from image upload:
-      Product 1 | Qty: 2 | Rate: 120.00
-      Product 2 | Qty: 5 | Rate: 45.00
-      ---------------------------------
-    `;
-    products = [
-      { productName: 'Fresh Milk 1L', category: 'Dairy', unit: 'Packet', pricePerUnit: 62.00, mrp: 66.00, quantity: 12, discount: 4.00, brand: 'Amul', gst: '0%', sku: 'AMU-MILK-1L' },
-      { productName: 'Basmati Rice Premium 5kg', category: 'Grocery', unit: 'Bag', pricePerUnit: 499.00, mrp: 550.00, quantity: 4, discount: 51.00, brand: 'Daawat', gst: '5%', sku: 'DAW-RICE-5K' },
-      { productName: 'Surf Excel Easy Wash 1kg', category: 'Household', unit: 'Packet', pricePerUnit: 140.00, mrp: 150.00, quantity: 6, discount: 10.00, brand: 'Unilever', gst: '18%', sku: 'SUR-EXC-1K' }
-    ];
+  try {
+    logger.info(`Running Tesseract OCR on ${req.file.path}`);
+    const { data: { text } } = await Tesseract.recognize(
+      req.file.path,
+      'eng'
+    );
+    rawText = text;
+
+    // Simple heuristic parser for extracted text
+    const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    
+    for (const line of lines) {
+      // Look for a pattern like "Product Name 2 50.00" or "Product Name Qty 2 Rate 50"
+      // This is a naive regex for demonstration that captures text followed by numbers
+      const match = line.match(/^([A-Za-z0-9\s\-]+?)\s+(?:Qty[:\s]*)?(\d+(?:\.\d+)?)\s+(?:Rate[:\s]*)?(?:Rs\.?|INR|\u20B9)?\s*(\d+(?:\.\d+)?)/i);
+      
+      if (match && match[1].trim().length > 2) {
+        products.push({
+          productName: match[1].trim(),
+          category: 'General',
+          unit: 'Unit',
+          pricePerUnit: parseFloat(match[3]),
+          mrp: parseFloat(match[3]),
+          quantity: parseFloat(match[2]),
+          discount: 0,
+          brand: 'Generic',
+          gst: '0%',
+          sku: `SKU-${Date.now().toString().substring(8)}`
+        });
+      }
+    }
+
+    // Fallback if parsing failed but we got text
+    if (products.length === 0 && rawText.length > 10) {
+       products = [
+          { productName: 'Manual Entry Required', category: 'General', unit: 'Unit', pricePerUnit: 0, mrp: 0, quantity: 1, discount: 0, brand: 'Generic', gst: '0%', sku: `SKU-${Date.now().toString().substring(8)}` }
+       ];
+    }
+  } catch (err) {
+    logger.error('OCR Processing Error:', err);
+    rawText = 'OCR Processing Failed: ' + err.message;
   }
 
   // Store scanned bill in our custom scanned_bills table
-  await prisma.$executeRawUnsafe(`
-    INSERT INTO scanned_bills (shop_id, bill_url, raw_text, extracted_data)
-    VALUES ($1, $2, $3, $4::jsonb)
-  `, shopId, fileUrl, rawText, JSON.stringify(products));
+  try {
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO scanned_bills (shop_id, bill_url, raw_text, extracted_data)
+      VALUES ($1, $2, $3, $4::jsonb)
+    `, shopId, fileUrl, rawText, JSON.stringify(products));
+  } catch (dbErr) {
+    logger.error('Failed to insert into scanned_bills table, ignoring.', dbErr);
+  }
 
   res.json({
     success: true,
@@ -2110,35 +2143,49 @@ exports.saveScannedProducts = asyncHandler(async (req, res) => {
     await prisma.category.createMany({ data: catData, skipDuplicates: true });
   }
 
-  // 4. Prepare and insert products
-  const productData = products.map(item => {
-    const { productName, category, unit, pricePerUnit, description, brand } = item;
+  // 4. Prepare and upsert products
+  const upsertPromises = products.map(item => {
+    const { productName, category, unit, pricePerUnit, description, brand, quantity } = item;
     const cat = category ? category.trim() : 'General';
-    return {
-      shopId,
-      productName: productName.trim(),
-      productNameEn: productName.trim(),
-      category: cat,
-      categoryEn: cat,
-      unit: unit || 'Unit',
-      pricePerUnit: parseFloat(pricePerUnit) || 0.0,
-      photoUrl: generateAvatarUrl(productName.trim()),
-      stockStatus: 'AVAILABLE',
-      description: description || `Brand: ${brand || 'Local'}`
-    };
+    const normalizedName = productName.trim();
+    const parsedQty = parseFloat(quantity) || 1;
+    const parsedPrice = parseFloat(pricePerUnit) || 0.0;
+
+    return prisma.product.upsert({
+      where: {
+        shopId_productName: {
+          shopId,
+          productName: normalizedName
+        }
+      },
+      update: {
+        stockQuantity: { increment: parsedQty },
+        pricePerUnit: parsedPrice > 0 ? parsedPrice : undefined,
+      },
+      create: {
+        shopId,
+        productName: normalizedName,
+        productNameEn: normalizedName,
+        category: cat,
+        categoryEn: cat,
+        unit: unit || 'Unit',
+        pricePerUnit: parsedPrice,
+        photoUrl: generateAvatarUrl(normalizedName),
+        stockQuantity: parsedQty,
+        stockStatus: 'AVAILABLE',
+        description: description || `Brand: ${brand || 'Local'}`
+      }
+    });
   });
 
-  const result = await prisma.product.createMany({
-    data: productData,
-    skipDuplicates: true
-  });
+  const result = await Promise.all(upsertPromises);
 
-  logger.info(`💾 Scanned products bulk saved successfully: ${result.count} items for shop: ${shopId}`);
+  logger.info(`💾 Scanned products bulk upserted successfully: ${result.length} items for shop: ${shopId}`);
 
   res.json({
     success: true,
-    message: `Successfully saved ${result.count} products to database!`,
-    products: productData
+    message: `Successfully saved/updated ${result.length} products!`,
+    products: result
   });
 });
 

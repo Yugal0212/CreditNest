@@ -14,6 +14,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/contexts/ThemeContext';
+import useSWR from 'swr';
 
 type Category = {
   id: number;
@@ -51,10 +52,9 @@ export default function ShopOwnerCategories() {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const [categories, setCategories] = useState<Category[]>([]);
   const [categoriesList, setCategoriesList] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
@@ -76,33 +76,27 @@ export default function ShopOwnerCategories() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
+  // Handle Search Debounce
   useEffect(() => {
-    fetchCategories();
-  }, [language]);
-
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      fetchCategories();
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
     }, 400);
-    return () => clearTimeout(delayDebounceFn);
-  }, [search, language]);
+    return () => clearTimeout(handler);
+  }, [search]);
 
-  const fetchCategories = async () => {
-    try {
-      setIsLoading(true);
-      const response = await shopOwnerAPI.getCategories({ search: search || undefined });
-      setCategories(response.data.categories || []);
-      setCategoriesList(response.data.categories || []);
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.response?.data?.message || 'Failed to load categories',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Use SWR for Categories
+  const { data: categoriesData, isLoading, mutate: fetchCategories } = useSWR(
+    ['shopOwnerCategoriesPage', debouncedSearch, language],
+    async () => {
+      const response = await shopOwnerAPI.getCategories({ search: debouncedSearch || undefined });
+      const cats = response.data.categories || [];
+      setCategoriesList(cats);
+      return cats;
+    },
+    { fallbackData: [], keepPreviousData: true }
+  );
+
+  const categories: Category[] = categoriesData || [];
 
   const openAddModal = () => {
     setIsEditing(false);

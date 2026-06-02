@@ -111,7 +111,7 @@ export default function ShopOwnerProducts() {
         };
       }
     },
-    { fallbackData: { products: [], totalPages: 1 } }
+    { fallbackData: { products: [], totalPages: 1 }, keepPreviousData: true }
   );
 
   const products = productsData?.products || [];
@@ -125,7 +125,7 @@ export default function ShopOwnerProducts() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [formData, setFormData] = useState({ name: '', category: 'General', unit: 'kg', pricePerUnit: '', stockStatus: 'AVAILABLE', description: '' });
+  const [formData, setFormData] = useState({ name: '', category: 'General', unit: 'kg', pricePerUnit: '', stockQuantity: '1', stockStatus: 'AVAILABLE', description: '' });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -134,7 +134,7 @@ export default function ShopOwnerProducts() {
   const openAddModal = () => {
     setIsEditing(false);
     setSelectedProduct(null);
-    setFormData({ name: '', category: 'General', unit: 'kg', pricePerUnit: '', stockStatus: 'AVAILABLE', description: '' });
+    setFormData({ name: '', category: 'General', unit: 'kg', pricePerUnit: '', stockQuantity: '1', stockStatus: 'AVAILABLE', description: '' });
     setPhotoFile(null); setImagePreview(null);
     setShowAddModal(true);
   };
@@ -143,7 +143,8 @@ export default function ShopOwnerProducts() {
     e.stopPropagation();
     setIsEditing(true);
     setSelectedProduct(p);
-    setFormData({ name: p.name, category: p.category || 'General', unit: p.unit, pricePerUnit: p.pricePerUnit.toString(), stockStatus: p.stockStatus, description: p.description || '' });
+    // @ts-ignore (since stockQuantity might not be in the initial Product type definition)
+    setFormData({ name: p.name, category: p.category || 'General', unit: p.unit, pricePerUnit: p.pricePerUnit.toString(), stockQuantity: p.stockQuantity?.toString() || '1', stockStatus: p.stockStatus, description: p.description || '' });
     setImagePreview(p.photoUrl);
     setPhotoFile(null);
     setShowAddModal(true);
@@ -159,6 +160,7 @@ export default function ShopOwnerProducts() {
       data.append('category', formData.category);
       data.append('unit', formData.unit);
       data.append('pricePerUnit', formData.pricePerUnit);
+      data.append('stockQuantity', formData.stockQuantity);
       data.append('stockStatus', formData.stockStatus);
       if (formData.description) data.append('description', formData.description);
       if (photoFile) data.append('photo', photoFile);
@@ -714,6 +716,10 @@ export default function ShopOwnerProducts() {
                     <div>
                       <label className="text-sm font-bold text-muted-foreground mb-1 block">Price Per Unit (₹) *</label>
                       <input required type="number" step="0.01" value={formData.pricePerUnit} onChange={e => setFormData({...formData, pricePerUnit: e.target.value})} className="w-full px-3 py-2.5 rounded-xl border bg-card text-card-foreground border border-border shadow-sm text-sm focus:ring-2 focus:ring-indigo-500/50 dark:ring-indigo-400/50" />
+                    </div>
+                    <div>
+                      <label className="text-sm font-bold text-muted-foreground mb-1 block">Quantity *</label>
+                      <input required type="number" min="0" value={formData.stockQuantity} onChange={e => setFormData({...formData, stockQuantity: e.target.value})} className="w-full px-3 py-2.5 rounded-xl border bg-card text-card-foreground border border-border shadow-sm text-sm focus:ring-2 focus:ring-indigo-500/50 dark:ring-indigo-400/50" />
                     </div>
                     <div className="sm:col-span-2">
                       <label className="text-sm font-bold text-muted-foreground mb-1 block">Stock Status *</label>

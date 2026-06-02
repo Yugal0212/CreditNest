@@ -159,6 +159,7 @@ model Product {
   unit         String
   pricePerUnit Float
   photoUrl     String?
+  stockQuantity Int          @default(0)
   stockStatus  StockStatus   @default(AVAILABLE)
   description  String?
   isActive     Boolean       @default(true)
@@ -169,6 +170,7 @@ model Product {
   transactionItems TransactionItem[]
 
   @@map("products")
+  @@unique([shopId, productName])
   @@index([shopId])
   @@index([isActive])
   @@index([shopId, isActive])

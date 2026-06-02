@@ -211,7 +211,7 @@ exports.shopOwnerVerifyOTP = asyncHandler(async (req, res) => {
   // Hash password if provided
   let passwordHash = null;
   if (password) {
-    passwordHash = await bcrypt.hash(password, 12);
+    passwordHash = await bcrypt.hash(password, 10);
   }
 
   // Create user, shop, and shop owner

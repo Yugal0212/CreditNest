@@ -132,46 +132,22 @@ const sendOTP = async (identifierOrTargets, type, method = 'email') => {
 
 
     // Send OTP based on method(s)
-    // In development, we allow the request to succeed even if external providers fail,
-    // because the OTP is already stored in DB and printed to console below.
-    const sendResults = await Promise.allSettled(
-      targets.map(async (target) => {
-        if (target.method === 'email') {
-          await sendOTPEmail(target.identifier, otp, getOtpEmailType(type));
-          return { method: 'email', identifier: target.identifier };
-        }
-
-        if (target.method === 'sms') {
-          await sendOTPSMS(target.identifier, otp);
-          return { method: 'sms', identifier: target.identifier };
-        }
-
-        return null;
-      })
-    );
-
-    const failures = sendResults.filter((result) => result.status === 'rejected');
-    const successes = sendResults.length - failures.length;
-
-    if (failures.length > 0) {
-      const failedMessages = failures.map((failure) => String(failure.reason?.message || failure.reason));
-      const logPayload = {
-        identifiers: uniqueIdentifiers,
-        errors: failedMessages,
-      };
-
-      logger.warn('OTP delivery had partial or total failures.', logPayload);
-      
-      // If ALL methods failed, throw error to notify frontend so it doesn't fail silently
-      if (successes === 0) {
-        const err = new Error(`Failed to send OTP. Reason: ${failedMessages.join(', ')}`);
-        err.statusCode = 502; // Bad Gateway
-        throw err;
+    // Run asynchronously in the background to make the API response instant
+    targets.forEach((target) => {
+      if (target.method === 'email') {
+        sendOTPEmail(target.identifier, otp, getOtpEmailType(type))
+          .catch(err => logger.error(`Failed to send OTP Email to ${target.identifier}:`, err.message || err));
       }
-    }
 
-    // Log OTP prominently in development mode or if all providers failed
-    if (isDevelopment || successes === 0) {
+      if (target.method === 'sms') {
+        sendOTPSMS(target.identifier, otp)
+          .catch(err => logger.error(`Failed to send OTP SMS to ${target.identifier}:`, err.message || err));
+      }
+    });
+
+
+    // Log OTP prominently in development mode
+    if (isDevelopment) {
       console.log('\n' + '='.repeat(70));
       console.log('🔐 OTP GENERATED (DEVELOPMENT MODE OR FALLBACK)');
       console.log('='.repeat(70));
